@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function activeUser() {
+      return signedIn() && profile().data.active == true;
+    }
+
+    function role() {
+      return profile().data.role;
+    }
+
+    function agent() {
+      return activeUser() && role() == 'agent';
+    }
+
+    function admin() {
+      return activeUser() && role() in ['admin', 'superAdmin'];
+    }
+
+    function superAdmin() {
+      return activeUser() && role() == 'superAdmin';
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || admin());
+      allow create, update, delete: if superAdmin();
+    }
+
+    match /branches/{branchId} {
+      allow read: if activeUser();
+      allow write: if superAdmin();
+    }
+
+    match /draws/{drawId} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /bets/{betId} {
+      allow read: if admin() || (agent() && resource.data.agentId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /drawTallies/{drawId}/numbers/{number} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /riskConfigs/{drawId}/numbers/{number} {
+      allow read: if activeUser();
+      allow write: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if admin();
+      allow write: if false;
+    }
+  }
+}

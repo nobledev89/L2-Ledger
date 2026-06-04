@@ -1,0 +1,28 @@
+name: stl_risk_monitor
+description: Mobile-first risk monitoring app for authorized STL agents and admins.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cloud_firestore: ^5.4.4
+  cloud_functions: ^5.1.3
+  firebase_auth: ^5.3.1
+  firebase_core: ^3.6.0
+  flutter_riverpod: ^2.6.1
+  intl: ^0.19.0
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  assets:
+    - shorebird.yaml
+  uses-material-design: true

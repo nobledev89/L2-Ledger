@@ -1,0 +1,439 @@
+You are an expert Flutter + Firebase engineer. Build an MVP mobile-first app for authorized STL agents and admins.
+
+Project name:
+stl_risk_monitor
+
+Important legal/compliance framing:
+This app is only for authorized STL/PCSO-related operations. Do not add features that support illegal gambling, anonymous public betting, unlicensed play, evasion, or hiding activity. The app must focus on agent bet encoding, real-time tallying, risk monitoring, audit logs, and settlement reports.
+
+Tech stack:
+
+* Flutter
+* Dart
+* Firebase Authentication
+* Cloud Firestore
+* Firebase Security Rules
+* Firebase Cloud Functions if needed
+* Firebase Hosting optional for future admin web dashboard
+* Use clean architecture or simple feature-based architecture
+* Use Riverpod or Provider for state management; prefer Riverpod if no strong reason otherwise
+
+Target platforms:
+
+* Android first
+* iOS compatible
+* Admin dashboard can initially be inside the same Flutter app using role-based screens
+* Later we may build a separate web dashboard
+
+Core user roles:
+
+1. agent
+2. admin
+3. superAdmin
+
+Main app purpose:
+STL agents input number bets and amounts from the field. Admins see real-time total bets, per-number tally, payout exposure, hot numbers, over-limit numbers, agent sales, and draw status.
+
+MVP scope:
+Build a working Flutter app with the following screens and Firebase integration.
+
+Screens:
+
+1. Login Screen
+
+* Email/password login using Firebase Auth
+* After login, load user profile from Firestore users/{uid}
+* Route user based on role:
+
+  * agent goes to Agent Home
+  * admin/superAdmin goes to Admin Dashboard
+
+2. Agent Home Screen
+   Show:
+
+* Current open draw
+* Draw time
+* Cut-off time
+* Status: open, locked, completed
+* Agent total sales for selected draw
+* Last 10 submitted bets
+  Actions:
+* Create bet
+* View own bets
+* Sync status indicator
+
+3. Agent Bet Entry Screen
+   Fields:
+
+* Draw selector
+* Game type selector, default: "STL 2D"
+* Number input, exactly 2 digits from 00 to 99
+* Amount input, positive number
+* Optional customer reference
+* Submit button
+
+Validation:
+
+* User must be authenticated
+* User role must be agent
+* Draw must be open
+* Current time must be before cutoff
+* Number must be 00 to 99
+* Amount must be greater than 0
+* If number is blocked for that draw, prevent submission
+* If number is warning/near limit, show warning before submit
+* Do not allow editing after submission except void request
+
+On submit:
+
+* Create document in bets collection
+* status = accepted unless it exceeds hard risk rule, then pendingApproval or rejected depending config
+* timestamp from serverTimestamp
+* Store agentId, branchId, drawId, gameType, number, amount, payoutMultiplier, exposure, createdAt, deviceId optional
+* Update aggregate tally safely using Firestore transaction or Cloud Function
+
+4. Agent Bets Screen
+   Show the agent’s own bets for the selected draw:
+
+* Time
+* Number
+* Amount
+* Status
+* Reference
+  Allow:
+* Request void only before cutoff
+* Void must create audit log and mark status = voidRequested, not delete
+
+5. Admin Dashboard Screen
+   Real-time dashboard using Firestore streams.
+   Show top cards:
+
+* Total sales for selected draw
+* Total accepted bets count
+* Agents online or active today
+* Highest exposure number
+* Highest exposure amount
+* Number of red-risk numbers
+* Time remaining before cutoff
+
+Main sections:
+A. 00-99 heatmap/grid
+
+* Each number tile shows:
+
+  * number
+  * total amount
+  * exposure
+  * risk status: green, yellow, orange, red, blocked
+* Color logic:
+
+  * green: exposure < 60% of limit
+  * yellow: 60% to 84%
+  * orange: 85% to 99%
+  * red: >= 100%
+  * blocked: manually blocked or hard limit exceeded
+
+B. Hot Numbers List
+
+* Sort numbers by exposure descending
+* Show top 10
+
+C. Recent Bets
+
+* Live feed of latest 20 accepted/pending bets
+
+D. Pending Approvals
+
+* Bets that need admin approval because they exceed configured threshold
+* Admin can approve or reject
+* Approval/rejection must create audit log
+
+6. Number Detail Screen for Admin
+   When admin taps a number:
+   Show:
+
+* Number
+* Total amount
+* Exposure
+* Limit
+* Remaining allowable exposure
+* Bets grouped by agent
+* Bets grouped by branch
+* Recent entries
+  Actions:
+* Block number for this draw
+* Unblock number
+* Change risk limit for this number
+* View audit logs
+
+7. Draw Management Screen
+   Admin/superAdmin can:
+
+* Create draw
+* Set draw time
+* Set cutoff time
+* Set status: open, locked, completed
+* Lock draw manually
+* Complete draw and input official result
+* Once completed, compute winning exposure and report
+
+8. Reports Screen
+   Show:
+
+* Sales by draw
+* Sales by agent
+* Sales by branch
+* Per-number totals
+* Winning number payout exposure
+* Net position estimate
+* Export-ready summary layout, even if actual PDF export is left as TODO
+
+Firestore collections:
+
+users/{uid}
+Fields:
+
+* uid
+* name
+* email
+* role: agent/admin/superAdmin
+* branchId
+* active
+* createdAt
+* updatedAt
+
+branches/{branchId}
+Fields:
+
+* name
+* area
+* active
+
+draws/{drawId}
+Fields:
+
+* gameType
+* drawTime
+* cutoffTime
+* status: open/locked/completed
+* officialResult
+* defaultPayoutMultiplier
+* createdBy
+* createdAt
+* updatedAt
+
+bets/{betId}
+Fields:
+
+* betId
+* drawId
+* agentId
+* branchId
+* gameType
+* number
+* amount
+* payoutMultiplier
+* exposure
+* status: accepted/pendingApproval/rejected/voidRequested/voided
+* customerRef
+* createdAt
+* updatedAt
+* approvedBy
+* approvedAt
+* voidReason
+
+drawTallies/{drawId}/numbers/{number}
+Fields:
+
+* number
+* totalAmount
+* exposure
+* betCount
+* riskLimit
+* riskStatus
+* blocked
+* updatedAt
+
+riskConfigs/{drawId}/numbers/{number}
+Fields:
+
+* number
+* riskLimit
+* warningThresholdPercent
+* orangeThresholdPercent
+* blockThresholdPercent
+* manuallyBlocked
+* updatedBy
+* updatedAt
+
+auditLogs/{logId}
+Fields:
+
+* actorId
+* actorRole
+* action
+* entityType
+* entityId
+* before
+* after
+* reason
+* createdAt
+
+Business logic:
+
+Payout exposure:
+
+* exposure = amount * payoutMultiplier
+* Default payoutMultiplier for 2D can be configurable, default to 400
+* Do not hardcode this permanently; store it in draw or config
+
+Tally update:
+When a bet is accepted:
+
+* Add amount to drawTallies/{drawId}/numbers/{number}.totalAmount
+* Add exposure to drawTallies/{drawId}/numbers/{number}.exposure
+* Increment betCount
+* Recompute riskStatus
+
+Risk status:
+
+* riskPercent = exposure / riskLimit
+* green if riskPercent < 0.60
+* yellow if >= 0.60 and < 0.85
+* orange if >= 0.85 and < 1.00
+* red if >= 1.00
+* blocked if manuallyBlocked = true
+
+Submission behavior:
+
+* If blocked, reject bet
+* If red or over hard limit, create pendingApproval or reject depending config
+* For MVP, make it pendingApproval so admin can decide
+* Accepted and pendingApproval bets must be visible to admin
+* Only accepted bets count toward active exposure
+* If admin approves pendingApproval, then update tally
+* If admin rejects, do not update tally
+
+Security requirements:
+
+* Use Firebase Auth
+* Use Firestore Security Rules
+* Agents can only read own user profile, open draws, risk flags needed for submission, and their own bets
+* Agents can create bets only for themselves
+* Agents cannot modify amount, number, drawId, agentId, branchId after creation
+* Agents cannot read all bets
+* Admins can read all bets, tallies, users, reports
+* Admins can approve/reject/void according to permissions
+* SuperAdmin can manage users, branches, and global config
+* No public unauthenticated read/write
+* Never trust client-only calculations for critical exposure; validate or recompute in transaction or Cloud Function where possible
+
+Recommended file structure:
+lib/
+main.dart
+app.dart
+firebase_options.dart
+core/
+constants/
+theme/
+utils/
+widgets/
+features/
+auth/
+login_screen.dart
+auth_service.dart
+agent/
+agent_home_screen.dart
+bet_entry_screen.dart
+agent_bets_screen.dart
+admin/
+admin_dashboard_screen.dart
+number_detail_screen.dart
+draw_management_screen.dart
+reports_screen.dart
+shared/
+models/
+app_user.dart
+draw.dart
+bet.dart
+tally.dart
+risk_config.dart
+services/
+firestore_service.dart
+draw_service.dart
+bet_service.dart
+tally_service.dart
+audit_service.dart
+providers/
+auth_provider.dart
+draw_provider.dart
+bet_provider.dart
+tally_provider.dart
+
+UI style:
+
+* Clean, simple, field-operator friendly
+* Large number input
+* Large submit button
+* Minimal typing
+* Admin heatmap should be easy to scan
+* Use Material 3
+* Use risk labels and colors:
+
+  * green = safe
+  * yellow = watch
+  * orange = near limit
+  * red = over limit
+  * gray = blocked/locked
+
+Implementation requirements:
+
+1. Create the Flutter project structure.
+2. Add Firebase packages:
+
+   * firebase_core
+   * firebase_auth
+   * cloud_firestore
+   * flutter_riverpod
+   * intl
+   * uuid
+3. Initialize Firebase in main.dart.
+4. Implement models with fromFirestore/toFirestore helpers.
+5. Implement authentication flow.
+6. Implement role-based routing.
+7. Implement agent bet submission.
+8. Implement real-time admin dashboard streams.
+9. Implement drawTallies real-time number grid.
+10. Add basic Firestore security rules in a firestore.rules file.
+11. Add seed/sample data instructions in README.
+12. Add TODO comments where Cloud Functions would be better for production-grade aggregation.
+13. Make the app compile without missing imports.
+14. Include clear setup instructions in README:
+
+* flutter pub get
+* firebase login
+* dart pub global activate flutterfire_cli
+* flutterfire configure
+* flutter run
+
+Important:
+
+* Do not build a mock-only UI. Use actual Firebase service classes.
+* It is okay to include fallback sample UI states when no Firestore data exists.
+* Do not add payment processing.
+* Do not add public customer betting.
+* Do not add anonymous betting.
+* Do not add any feature meant to avoid compliance or reporting.
+* Keep all records auditable.
+* Do not delete bets; use statuses instead.
+
+Deliverables:
+
+* Working Flutter code
+* Firestore model classes
+* Firebase services
+* Role-based screens
+* Real-time streams
+* Firestore rules
+* README with setup instructions
+* Notes for production improvements, especially Cloud Functions for trusted tally aggregation and admin approvals
