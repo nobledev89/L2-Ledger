@@ -3,13 +3,22 @@ import {getAuth} from "firebase/auth";
 import {getFirestore} from "firebase/firestore";
 import {getFunctions} from "firebase/functions";
 
+const defaults = {
+  apiKey: "AIzaSyA7oiVVJ0Md_GZYgwxFU-qoBktWyrsHYvc",
+  authDomain: "posd-b2422.firebaseapp.com",
+  projectId: "posd-b2422",
+  storageBucket: "posd-b2422.firebasestorage.app",
+  messagingSenderId: "75073765141",
+  appId: "1:75073765141:web:5f89ab2f7371a52e74331c",
+};
+
 const requiredEnv = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaults.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaults.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaults.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaults.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaults.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaults.appId,
 };
 
 const missing = Object.entries(requiredEnv)
