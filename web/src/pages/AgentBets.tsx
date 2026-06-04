@@ -1,24 +1,25 @@
 import {RotateCcw} from "lucide-react";
 import {useState} from "react";
-import {api, useRecentBets} from "../lib/data";
-import {dateTime, money} from "../lib/format";
+import {api, useBets} from "../lib/data";
+import {dateTime, drawSlotLabel, money} from "../lib/format";
+import type {AppUser} from "../lib/types";
 
 interface AgentBetsProps {
-  agentId: string;
+  user: AppUser;
 }
 
-export function AgentBets({agentId}: AgentBetsProps) {
-  const bets = useRecentBets(undefined, agentId, false);
-  const [busyBet, setBusyBet] = useState("");
+export function AgentBets({user}: AgentBetsProps) {
+  const bets = useBets({createdBy: user.uid});
+  const [busySlip, setBusySlip] = useState("");
 
-  async function requestVoid(betId: string) {
-    const reason = window.prompt("Reason for void request") ?? "";
+  async function cancelSlip(slipId: string) {
+    const reason = window.prompt("Reason for cancellation") ?? "";
     if (!reason.trim()) return;
-    setBusyBet(betId);
+    setBusySlip(slipId);
     try {
-      await api.requestVoid(betId, reason.trim());
+      await api.cancelBetSlip(slipId, reason.trim());
     } finally {
-      setBusyBet("");
+      setBusySlip("");
     }
   }
 
@@ -26,7 +27,7 @@ export function AgentBets({agentId}: AgentBetsProps) {
     <section className="workspace">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Agent</span>
+          <span className="eyebrow">Usher</span>
           <h2>My Bets</h2>
         </div>
       </div>
@@ -35,9 +36,12 @@ export function AgentBets({agentId}: AgentBetsProps) {
           <thead>
             <tr>
               <th>Time</th>
+              <th>Reference</th>
+              <th>Bettor</th>
+              <th>Draw</th>
               <th>Number</th>
               <th>Amount</th>
-              <th>Exposure</th>
+              <th>Potential payout</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -46,13 +50,16 @@ export function AgentBets({agentId}: AgentBetsProps) {
             {bets.data.map((bet) => (
               <tr key={bet.betId}>
                 <td>{dateTime(bet.createdAt)}</td>
+                <td>{bet.referenceCode}</td>
+                <td>{bet.bettorName}</td>
+                <td>{bet.drawDate} {drawSlotLabel(bet.drawSlot)}</td>
                 <td className="number-cell">{bet.number}</td>
                 <td>{money(bet.amount)}</td>
-                <td>{money(bet.exposure)}</td>
+                <td>{money(bet.potentialPayout)}</td>
                 <td><span className={`pill ${bet.status}`}>{bet.status}</span></td>
                 <td>
-                  {bet.status === "accepted" && (
-                    <button className="icon-button" disabled={busyBet === bet.betId} onClick={() => requestVoid(bet.betId)} title="Request void">
+                  {["accepted", "edited"].includes(bet.status) && (
+                    <button className="icon-button" disabled={busySlip === bet.slipId} onClick={() => cancelSlip(bet.slipId)} title="Cancel slip before cutoff">
                       <RotateCcw size={17} />
                     </button>
                   )}

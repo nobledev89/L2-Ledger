@@ -1,4 +1,4 @@
-import {dateTime} from "../lib/format";
+import {dateTime, drawSlotLabel} from "../lib/format";
 import type {Draw} from "../lib/types";
 
 interface DrawSelectProps {
@@ -14,7 +14,7 @@ export function DrawSelect({draws, selectedId, setSelectedId}: DrawSelectProps) 
       <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
         {draws.map((draw) => (
           <option key={draw.drawId} value={draw.drawId}>
-            {draw.gameType} · {dateTime(draw.drawTime)} · {draw.status}
+            {draw.drawDate} · {drawSlotLabel(draw.drawSlot)} · cutoff {dateTime(draw.cutoffTime)} · {draw.status}
           </option>
         ))}
       </select>

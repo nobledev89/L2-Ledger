@@ -1,10 +1,10 @@
-You are an expert Flutter + Firebase engineer. Build an MVP mobile-first app for authorized STL agents and admins.
+You are an expert Flutter + Firebase engineer. Build an MVP mobile-first app for authorized STL/PCSO-related operations.
 
 Project name:
 stl_risk_monitor
 
 Important legal/compliance framing:
-This app is only for authorized STL/PCSO-related operations. Do not add features that support illegal gambling, anonymous public betting, unlicensed play, evasion, or hiding activity. The app must focus on agent bet encoding, real-time tallying, risk monitoring, audit logs, and settlement reports.
+This app is only for authorized STL/PCSO-related operators, ushers, and admins. Do not add features that support illegal gambling, anonymous public betting, unlicensed play, evasion, or hiding activity. The app must focus on authorized bet encoding, real-time tallying, risk monitoring, audit logs, billing controls, and settlement reports.
 
 Tech stack:
 
@@ -13,264 +13,261 @@ Tech stack:
 * Firebase Authentication
 * Cloud Firestore
 * Firebase Security Rules
-* Firebase Cloud Functions if needed
+* Firebase Cloud Functions for trusted bet submission, tally aggregation, payout computation, and billing lockouts
 * Firebase Hosting optional for future admin web dashboard
-* Use clean architecture or simple feature-based architecture
-* Use Riverpod or Provider for state management; prefer Riverpod if no strong reason otherwise
+* Riverpod for state management
 
 Target platforms:
 
 * Android first
 * iOS compatible
 * Admin dashboard can initially be inside the same Flutter app using role-based screens
-* Later we may build a separate web dashboard
+* Later, build a separate web dashboard for platform admins
 
-Core user roles:
+Core roles:
 
-1. agent
-2. admin
-3. superAdmin
+1. usher
+2. operator
+3. admin
 
-Main app purpose:
-STL agents input number bets and amounts from the field. Admins see real-time total bets, per-number tally, payout exposure, hot numbers, over-limit numbers, agent sales, and draw status.
+Role definitions:
 
-MVP scope:
-Build a working Flutter app with the following screens and Firebase integration.
+Usher:
 
-Screens:
+* Works under exactly one operator at a time.
+* Takes and lists field bets.
+* Can create, view, edit, and cancel only their own bets before the draw cutoff.
+* Cannot create bets if their operator account is locked for unpaid weekly billing.
+* Can work offline temporarily, but must sync periodically when unsynced bets exist.
 
-1. Login Screen
+Operator:
 
-* Email/password login using Firebase Auth
-* After login, load user profile from Firestore users/{uid}
-* Route user based on role:
+* Manages their own operation.
+* Adds, disables, and manages ushers.
+* Can create direct bets not assigned to an usher.
+* Sees live bets per day and per draw.
+* Sets cutoff time per fixed draw.
+* Enters winning numbers.
+* Sets payout multiplier.
+* Sets usher compensation mode: salary or salary plus percentage.
+* Sees real-time reporting per usher and for the whole operation.
+* Cannot manage other operators.
 
-  * agent goes to Agent Home
-  * admin/superAdmin goes to Admin Dashboard
+Admin:
 
-2. Agent Home Screen
-   Show:
+* Adds and manages operators.
+* Can see all operators, ushers, bets, bettor names, results, payouts, billing, and audit logs.
+* Sets free trial timeline.
+* Sets operator fee rules.
+* Sets whether admin fee is based on usher count/activity or operator net daily income.
+* Reviews all operator operations.
+* Can lock or unlock operators.
 
-* Current open draw
-* Draw time
-* Cut-off time
-* Status: open, locked, completed
-* Agent total sales for selected draw
-* Last 10 submitted bets
-  Actions:
-* Create bet
-* View own bets
-* Sync status indicator
+Fixed draw schedule:
 
-3. Agent Bet Entry Screen
-   Fields:
+* 2:00 PM
+* 5:00 PM
+* 9:00 PM
 
-* Draw selector
-* Game type selector, default: "STL 2D"
-* Number input, exactly 2 digits from 00 to 99
-* Amount input, positive number
-* Optional customer reference
-* Submit button
+Draw requirements:
 
-Validation:
+* Draw times are fixed and should not be manually changed.
+* Operators may configure cutoff time per draw.
+* Recommended default cutoffs:
+  * 2:00 PM draw -> 1:45 PM cutoff
+  * 5:00 PM draw -> 4:45 PM cutoff
+  * 9:00 PM draw -> 8:45 PM cutoff
+* Bets cannot be created, edited, or cancelled after cutoff.
+* Operators enter winning number after each draw.
+* Payouts are based on operator-specified multiplier.
 
-* User must be authenticated
-* User role must be agent
-* Draw must be open
-* Current time must be before cutoff
-* Number must be 00 to 99
-* Amount must be greater than 0
-* If number is blocked for that draw, prevent submission
-* If number is warning/near limit, show warning before submit
-* Do not allow editing after submission except void request
+Bet rules:
 
-On submit:
+* Numbers are exactly 2 digits from 00 to 99.
+* Minimum amount per number is 10 pesos.
+* One bettor can place multiple numbers in one transaction.
+* Each number in a transaction can have a different amount.
+* Duplicate numbers across different bettors are allowed.
+* Store bettor name for later prize claim.
+* Generate a ticket/reference code after submission.
+* Show a reference modal after submission so the bettor can take a photo.
+* No printed ticket, SMS, or WhatsApp receipt is required for MVP.
+* Bets are never hard-deleted. Use statuses and audit logs.
 
-* Create document in bets collection
-* status = accepted unless it exceeds hard risk rule, then pendingApproval or rejected depending config
-* timestamp from serverTimestamp
-* Store agentId, branchId, drawId, gameType, number, amount, payoutMultiplier, exposure, createdAt, deviceId optional
-* Update aggregate tally safely using Firestore transaction or Cloud Function
+Bet statuses:
 
-4. Agent Bets Screen
-   Show the agent’s own bets for the selected draw:
+* draftLocal
+* pendingSync
+* accepted
+* edited
+* cancelled
+* voided
+* won
+* lost
+* paid
 
-* Time
-* Number
-* Amount
-* Status
-* Reference
-  Allow:
-* Request void only before cutoff
-* Void must create audit log and mark status = voidRequested, not delete
+Transaction model:
 
-5. Admin Dashboard Screen
-   Real-time dashboard using Firestore streams.
-   Show top cards:
+betSlips/{slipId}
 
-* Total sales for selected draw
-* Total accepted bets count
-* Agents online or active today
-* Highest exposure number
-* Highest exposure amount
-* Number of red-risk numbers
-* Time remaining before cutoff
+* slipId
+* referenceCode
+* operatorId
+* usherId nullable for direct operator bets
+* createdBy
+* createdByRole: usher/operator
+* bettorName
+* drawId
+* drawDate
+* drawSlot: 2pm/5pm/9pm
+* totalAmount
+* status
+* source: usher/direct
+* createdAt
+* updatedAt
+* syncedAt
+* deviceId optional
 
-Main sections:
-A. 00-99 heatmap/grid
+betSlips/{slipId}/lines/{lineId}
 
-* Each number tile shows:
+* lineId
+* number
+* amount
+* payoutMultiplier
+* potentialPayout
+* resultStatus: pending/won/lost/paid/cancelled
+* createdAt
+* updatedAt
 
-  * number
-  * total amount
-  * exposure
-  * risk status: green, yellow, orange, red, blocked
-* Color logic:
+Alternative if simpler for MVP:
 
-  * green: exposure < 60% of limit
-  * yellow: 60% to 84%
-  * orange: 85% to 99%
-  * red: >= 100%
-  * blocked: manually blocked or hard limit exceeded
+* Store each bet line as a top-level bets document.
+* Include slipId and referenceCode on each line.
+* This makes reporting and Firestore queries easier.
 
-B. Hot Numbers List
-
-* Sort numbers by exposure descending
-* Show top 10
-
-C. Recent Bets
-
-* Live feed of latest 20 accepted/pending bets
-
-D. Pending Approvals
-
-* Bets that need admin approval because they exceed configured threshold
-* Admin can approve or reject
-* Approval/rejection must create audit log
-
-6. Number Detail Screen for Admin
-   When admin taps a number:
-   Show:
-
-* Number
-* Total amount
-* Exposure
-* Limit
-* Remaining allowable exposure
-* Bets grouped by agent
-* Bets grouped by branch
-* Recent entries
-  Actions:
-* Block number for this draw
-* Unblock number
-* Change risk limit for this number
-* View audit logs
-
-7. Draw Management Screen
-   Admin/superAdmin can:
-
-* Create draw
-* Set draw time
-* Set cutoff time
-* Set status: open, locked, completed
-* Lock draw manually
-* Complete draw and input official result
-* Once completed, compute winning exposure and report
-
-8. Reports Screen
-   Show:
-
-* Sales by draw
-* Sales by agent
-* Sales by branch
-* Per-number totals
-* Winning number payout exposure
-* Net position estimate
-* Export-ready summary layout, even if actual PDF export is left as TODO
-
-Firestore collections:
+Recommended MVP data model:
 
 users/{uid}
-Fields:
 
 * uid
 * name
 * email
-* role: agent/admin/superAdmin
-* branchId
+* role: usher/operator/admin
+* operatorId nullable for admins
 * active
 * createdAt
 * updatedAt
 
-branches/{branchId}
-Fields:
+operators/{operatorId}
 
+* operatorId
 * name
-* area
+* contactName
+* contactPhone
 * active
+* billingStatus: trial/active/due/overdue/locked
+* trialStartAt
+* trialEndsAt
+* defaultPayoutMultiplier
+* feeMode: usherBased/netDailyIncome
+* feePercent
+* feePerUsher nullable
+* lockReason
+* createdAt
+* updatedAt
+
+ushers/{usherId}
+
+* usherId
+* operatorId
+* userId
+* name
+* active
+* compensationMode: salary/salaryPlusPercentage
+* salaryAmount nullable
+* percentage nullable
+* createdAt
+* updatedAt
 
 draws/{drawId}
-Fields:
 
-* gameType
+* drawId
+* operatorId
+* drawDate
+* drawSlot: 2pm/5pm/9pm
 * drawTime
 * cutoffTime
 * status: open/locked/completed
-* officialResult
-* defaultPayoutMultiplier
-* createdBy
+* winningNumber
+* payoutMultiplier
 * createdAt
 * updatedAt
 
 bets/{betId}
-Fields:
 
 * betId
+* slipId
+* referenceCode
+* operatorId
+* usherId nullable for direct operator bets
+* createdBy
+* createdByRole
+* bettorName
 * drawId
-* agentId
-* branchId
-* gameType
+* drawDate
+* drawSlot
 * number
 * amount
 * payoutMultiplier
-* exposure
-* status: accepted/pendingApproval/rejected/voidRequested/voided
-* customerRef
+* potentialPayout
+* status: pendingSync/accepted/edited/cancelled/won/lost/paid
 * createdAt
 * updatedAt
-* approvedBy
-* approvedAt
-* voidReason
+* syncedAt
+* cancelledAt
+* paidAt
 
 drawTallies/{drawId}/numbers/{number}
-Fields:
 
+* operatorId
+* drawId
 * number
 * totalAmount
-* exposure
 * betCount
-* riskLimit
-* riskStatus
-* blocked
+* potentialPayout
 * updatedAt
 
-riskConfigs/{drawId}/numbers/{number}
-Fields:
+dailyReports/{operatorId}_{yyyyMMdd}
 
-* number
-* riskLimit
-* warningThresholdPercent
-* orangeThresholdPercent
-* blockThresholdPercent
-* manuallyBlocked
-* updatedBy
+* operatorId
+* date
+* grossStakes
+* payouts
+* netDailyIncome
+* totalBets
+* totalSlips
+* totalUshersActive
+* computedAt
+
+operatorBillingWeeks/{operatorId}_{weekStart}
+
+* operatorId
+* weekStartDate
+* fridayCutoffAt
+* dueDateSunday
+* lockedOnMondayAt
+* totalNetDailyIncome
+* totalAdminFee
+* status: open/due/paid/overdue/locked
+* paidAt
+* createdAt
 * updatedAt
 
 auditLogs/{logId}
-Fields:
 
 * actorId
 * actorRole
+* operatorId nullable
 * action
 * entityType
 * entityId
@@ -279,161 +276,237 @@ Fields:
 * reason
 * createdAt
 
-Business logic:
+Core screens:
 
-Payout exposure:
+1. Login Screen
 
-* exposure = amount * payoutMultiplier
-* Default payoutMultiplier for 2D can be configurable, default to 400
-* Do not hardcode this permanently; store it in draw or config
+* Email/password login.
+* Load users/{uid}.
+* Route by role:
+  * usher -> Usher Home
+  * operator -> Operator Dashboard
+  * admin -> Admin Dashboard
 
-Tally update:
-When a bet is accepted:
+2. Usher Home
 
-* Add amount to drawTallies/{drawId}/numbers/{number}.totalAmount
-* Add exposure to drawTallies/{drawId}/numbers/{number}.exposure
-* Increment betCount
-* Recompute riskStatus
+* Current date.
+* Fixed draw cards for 2 PM, 5 PM, and 9 PM.
+* Each card shows draw status, cutoff time, sync state, and usher sales.
+* Create bet.
+* View own bets.
+* Offline sync indicator and warning when unsynced bets exist for too long.
 
-Risk status:
+3. Usher Bet Entry
 
-* riskPercent = exposure / riskLimit
-* green if riskPercent < 0.60
-* yellow if >= 0.60 and < 0.85
-* orange if >= 0.85 and < 1.00
-* red if >= 1.00
-* blocked if manuallyBlocked = true
+* Draw selector limited to fixed draws for today.
+* Bettor name.
+* Multi-line number entry:
+  * number 00-99
+  * amount, minimum 10 pesos
+  * add/remove line
+* Total amount.
+* Submit button.
+* If offline, save locally as pendingSync.
+* If online, submit through Cloud Function.
+* After successful local or remote submission, show reference modal.
 
-Submission behavior:
+4. Reference Modal
 
-* If blocked, reject bet
-* If red or over hard limit, create pendingApproval or reject depending config
-* For MVP, make it pendingApproval so admin can decide
-* Accepted and pendingApproval bets must be visible to admin
-* Only accepted bets count toward active exposure
-* If admin approves pendingApproval, then update tally
-* If admin rejects, do not update tally
+* Reference code.
+* Bettor name.
+* Draw date and draw slot.
+* Lines: number and amount.
+* Total amount.
+* Usher/operator name.
+* Status: synced or pending sync.
+* Make the modal screenshot-friendly.
+
+5. Usher Bets
+
+* Filter by draw.
+* Show own slips and lines.
+* Allow edit/cancel before cutoff.
+* If already synced, edits/cancellations must go through Cloud Function and create audit logs.
+* If local pendingSync, allow local edit before sync.
+
+6. Operator Dashboard
+
+* Today's 2 PM, 5 PM, and 9 PM draws.
+* Live total stakes per draw.
+* Live total payout exposure per draw.
+* Live net estimate after winning number is entered.
+* Bets feed.
+* Filter by usher or direct operator bets.
+* Billing status banner if due/overdue/locked.
+
+7. Operator Draw Management
+
+* Fixed draw slots only.
+* Set cutoff time per draw.
+* Set payout multiplier.
+* Lock draw manually.
+* Enter winning number.
+* Complete draw.
+* Compute winning bets and payouts.
+
+8. Operator Usher Management
+
+* Add usher.
+* Disable usher.
+* Set salary or salary plus percentage.
+* View usher sales, payouts, and compensation report.
+
+9. Operator Reports
+
+* Per draw summary.
+* Per usher summary.
+* Direct operator bets summary.
+* Daily gross stakes.
+* Daily payouts.
+* Net daily income = stakes minus payouts.
+* Weekly billing preview.
+
+10. Admin Dashboard
+
+* All operators.
+* Billing status.
+* Trial status.
+* Active/inactive operators.
+* Total system stakes, payouts, and fees.
+* Drill down into any operator.
+
+11. Admin Operator Management
+
+* Add operator.
+* Activate/deactivate operator.
+* Set free trial start and end.
+* Set fee mode.
+* Set fee percentage or fee per usher.
+* Lock/unlock operator.
+
+12. Admin Billing
+
+* Daily billing additions.
+* Weekly cutoff every Friday after the 9 PM draw.
+* Payment due on or before Sunday.
+* If unpaid on Monday, operator becomes locked.
+* When locked, ushers cannot add bets.
+* Admin can mark billing as paid.
+
+13. Admin Global Reports
+
+* View all operator operations.
+* View all bets and bettor names.
+* View payouts.
+* View net daily income.
+* View fee calculation.
+* Export-ready summary layout.
+
+Offline sync requirements:
+
+* Use a local queue for usher-created bet slips when offline.
+* A pending offline slip must include localCreatedAt, deviceId, operatorId, usherId, drawId, bettorName, and lines.
+* On reconnect, sync pending slips through a Cloud Function.
+* Cloud Function must reject any synced bet slip that arrives after cutoff, even if it was created locally before cutoff.
+* Show reminders only when unsynced bets exist.
+* Escalate warning if unsynced bets remain for a long time while the usher keeps taking bets.
+* Prevent duplicate sync by using a clientGeneratedSlipId/idempotency key.
+
+Trusted server logic:
+
+Cloud Functions should handle:
+
+* submitBetSlip
+* editBetSlipBeforeCutoff
+* cancelBetSlipBeforeCutoff
+* createDailyDrawsForOperator
+* enterWinningNumber
+* computeDrawResults
+* computeDailyReport
+* computeWeeklyBilling
+* markBillingPaid
+* lockOverdueOperators
+* addOperator
+* addUsher
 
 Security requirements:
 
-* Use Firebase Auth
-* Use Firestore Security Rules
-* Agents can only read own user profile, open draws, risk flags needed for submission, and their own bets
-* Agents can create bets only for themselves
-* Agents cannot modify amount, number, drawId, agentId, branchId after creation
-* Agents cannot read all bets
-* Admins can read all bets, tallies, users, reports
-* Admins can approve/reject/void according to permissions
-* SuperAdmin can manage users, branches, and global config
-* No public unauthenticated read/write
-* Never trust client-only calculations for critical exposure; validate or recompute in transaction or Cloud Function where possible
+* No public unauthenticated read/write.
+* Ushers can only read their own profile, their operator's active draw config, and their own bets.
+* Ushers can only create bets for themselves under their assigned operator.
+* Ushers cannot create bets when operator billingStatus is locked.
+* Operators can read and manage only their own operation.
+* Operators can create direct bets only under their own operatorId and with usherId null.
+* Operators cannot change admin billing fields directly.
+* Admins can read and manage all operators, billing, users, bets, and reports.
+* Critical calculations must be validated in Cloud Functions, not trusted from client-only values.
+* All meaningful changes must create audit logs.
 
-Recommended file structure:
-lib/
-main.dart
-app.dart
-firebase_options.dart
-core/
-constants/
-theme/
-utils/
-widgets/
-features/
-auth/
-login_screen.dart
-auth_service.dart
-agent/
-agent_home_screen.dart
-bet_entry_screen.dart
-agent_bets_screen.dart
-admin/
-admin_dashboard_screen.dart
-number_detail_screen.dart
-draw_management_screen.dart
-reports_screen.dart
-shared/
-models/
-app_user.dart
-draw.dart
-bet.dart
-tally.dart
-risk_config.dart
-services/
-firestore_service.dart
-draw_service.dart
-bet_service.dart
-tally_service.dart
-audit_service.dart
-providers/
-auth_provider.dart
-draw_provider.dart
-bet_provider.dart
-tally_provider.dart
+Build phases:
 
-UI style:
+Phase 1 - Role and draw foundation
 
-* Clean, simple, field-operator friendly
-* Large number input
-* Large submit button
-* Minimal typing
-* Admin heatmap should be easy to scan
-* Use Material 3
-* Use risk labels and colors:
+* Rename role concepts from agent/admin/superAdmin to usher/operator/admin.
+* Add operator ownership to users, bets, draws, and reports.
+* Generate or create fixed daily draws: 2 PM, 5 PM, 9 PM.
+* Enforce configurable cutoff per operator draw.
 
-  * green = safe
-  * yellow = watch
-  * orange = near limit
-  * red = over limit
-  * gray = blocked/locked
+Phase 2 - Bet slip workflow
 
-Implementation requirements:
+* Add bettor name.
+* Add multi-number slip entry with different amounts per number.
+* Enforce 10 pesos minimum per line.
+* Generate reference code.
+* Show screenshot-friendly reference modal.
+* Support direct operator bets with usherId null.
 
-1. Create the Flutter project structure.
-2. Add Firebase packages:
+Phase 3 - Operator operations
 
-   * firebase_core
-   * firebase_auth
-   * cloud_firestore
-   * flutter_riverpod
-   * intl
-   * uuid
-3. Initialize Firebase in main.dart.
-4. Implement models with fromFirestore/toFirestore helpers.
-5. Implement authentication flow.
-6. Implement role-based routing.
-7. Implement agent bet submission.
-8. Implement real-time admin dashboard streams.
-9. Implement drawTallies real-time number grid.
-10. Add basic Firestore security rules in a firestore.rules file.
-11. Add seed/sample data instructions in README.
-12. Add TODO comments where Cloud Functions would be better for production-grade aggregation.
-13. Make the app compile without missing imports.
-14. Include clear setup instructions in README:
+* Operator dashboard for live day/draw bets.
+* Usher management.
+* Payout multiplier config.
+* Winning number entry.
+* Draw result computation.
+* Reports by usher, direct bets, draw, and day.
 
-* flutter pub get
-* firebase login
-* dart pub global activate flutterfire_cli
-* flutterfire configure
-* flutter run
+Phase 4 - Admin operations and billing
 
-Important:
+* Admin operator management.
+* Free trial timeline.
+* Fee mode configuration.
+* Daily billing additions.
+* Friday after-9 PM weekly cutoff.
+* Sunday payment deadline.
+* Monday unpaid lockout that blocks usher bet creation.
 
-* Do not build a mock-only UI. Use actual Firebase service classes.
-* It is okay to include fallback sample UI states when no Firestore data exists.
-* Do not add payment processing.
-* Do not add public customer betting.
-* Do not add anonymous betting.
-* Do not add any feature meant to avoid compliance or reporting.
-* Keep all records auditable.
-* Do not delete bets; use statuses instead.
+Phase 5 - Offline sync
 
-Deliverables:
+* Local pending queue.
+* Idempotent sync.
+* Sync warnings.
+* Cutoff-aware sync rejection.
+* Clear synced/pending status in the usher UI.
 
-* Working Flutter code
-* Firestore model classes
-* Firebase services
-* Role-based screens
-* Real-time streams
-* Firestore rules
-* README with setup instructions
-* Notes for production improvements, especially Cloud Functions for trusted tally aggregation and admin approvals
+Phase 6 - Hardening
+
+* Firestore rules.
+* Cloud Function validation.
+* Audit logs.
+* Tests for cutoff, billing lockout, duplicate sync, multi-line slips, payout computation, and permissions.
+* README setup and seed instructions.
+
+Open questions to confirm:
+
+1. What timezone should draw cutoff and billing use? Philippines time, operator-local time, or device time?
+2. What is the default payout multiplier?
+3. Can the multiplier differ per draw, or is it operator-wide for all draws?
+4. Can an operator edit a winning number after submitting it? If yes, who can override it and what audit reason is required?
+5. For salary plus percentage, is the percentage based on gross stakes, net income, or winning/losing result?
+6. Should cancelled bets reduce reports immediately, or remain visible but excluded from totals?
+7. Should bettor claim/payment require entering the reference code, bettor name, or both?
+8. Can partial payout happen, or is a winning bet always paid in full once marked paid?
+9. Should admin billing use calendar week Monday-Friday/Sunday, or a custom week per operator?
+10. Should operators be warned before Monday lockout, and when should those warnings appear?
+11. Should direct operator bets be allowed offline, or only usher bets?
+12. Should operator-created direct bets be disabled too when billing is locked, or only usher-created bets?
+13. Is risk monitoring/number blocking still required, or should the product now focus only on bet listing, payout, and billing?

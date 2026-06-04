@@ -1,38 +1,79 @@
 {
   "indexes": [
     {
-      "collectionGroup": "bets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "drawId", "order": "ASCENDING" },
-        { "fieldPath": "agentId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "bets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "drawId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "bets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "drawId", "order": "ASCENDING" },
-        { "fieldPath": "number", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "draws",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "drawTime", "order": "ASCENDING" }
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "drawTime", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "ushers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "name", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "drawId", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "drawId", "order": "ASCENDING"},
+        {"fieldPath": "usherId", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "createdBy", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "betSlips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "drawId", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "dailyReports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "date", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "operatorBillingWeeks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "weekStartDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "auditLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
       ]
     }
   ],

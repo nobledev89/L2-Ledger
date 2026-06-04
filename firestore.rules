@@ -18,50 +18,77 @@ service cloud.firestore {
       return profile().data.role;
     }
 
-    function agent() {
-      return activeUser() && role() == 'agent';
+    function operatorId() {
+      return profile().data.operatorId;
     }
 
     function admin() {
-      return activeUser() && role() in ['admin', 'superAdmin'];
+      return activeUser() && role() == 'admin';
     }
 
-    function superAdmin() {
-      return activeUser() && role() == 'superAdmin';
+    function operator() {
+      return activeUser() && role() == 'operator';
+    }
+
+    function usher() {
+      return activeUser() && role() == 'usher';
+    }
+
+    function sameOperator(data) {
+      return data.operatorId == operatorId();
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (uid == request.auth.uid || admin());
-      allow create, update, delete: if superAdmin();
-    }
-
-    match /branches/{branchId} {
-      allow read: if activeUser();
-      allow write: if superAdmin();
-    }
-
-    match /draws/{drawId} {
-      allow read: if activeUser();
+      allow read: if activeUser() && (uid == request.auth.uid || admin() || (operator() && resource.data.operatorId == operatorId()));
       allow write: if false;
     }
 
-    match /bets/{betId} {
-      allow read: if admin() || (agent() && resource.data.agentId == request.auth.uid);
+    match /operators/{id} {
+      allow read: if admin() || (activeUser() && id == operatorId());
+      allow write: if false;
+    }
+
+    match /ushers/{id} {
+      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow write: if false;
+    }
+
+    match /draws/{id} {
+      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow write: if false;
+    }
+
+    match /betSlips/{id} {
+      allow read: if admin()
+        || (operator() && sameOperator(resource.data))
+        || (usher() && resource.data.createdBy == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /bets/{id} {
+      allow read: if admin()
+        || (operator() && sameOperator(resource.data))
+        || (usher() && resource.data.createdBy == request.auth.uid);
       allow write: if false;
     }
 
     match /drawTallies/{drawId}/numbers/{number} {
-      allow read: if activeUser();
+      allow read: if admin() || (activeUser() && sameOperator(resource.data));
       allow write: if false;
     }
 
-    match /riskConfigs/{drawId}/numbers/{number} {
-      allow read: if activeUser();
+    match /dailyReports/{id} {
+      allow read: if admin() || (activeUser() && sameOperator(resource.data));
       allow write: if false;
     }
 
-    match /auditLogs/{logId} {
-      allow read: if admin();
+    match /operatorBillingWeeks/{id} {
+      allow read: if admin() || (operator() && sameOperator(resource.data));
+      allow write: if false;
+    }
+
+    match /auditLogs/{id} {
+      allow read: if admin() || (operator() && sameOperator(resource.data));
       allow write: if false;
     }
   }

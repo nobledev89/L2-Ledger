@@ -1,8 +1,8 @@
-import {Activity, ClipboardList, Gauge, LogOut, PlusCircle, Settings, ShieldCheck} from "lucide-react";
+import {Activity, ClipboardList, CreditCard, LayoutDashboard, LogOut, PlusCircle, Settings, ShieldCheck, Users} from "lucide-react";
 import type {ReactNode} from "react";
 import type {AppUser} from "../lib/types";
 
-export type View = "agent-entry" | "agent-bets" | "admin-dashboard" | "draws" | "reports";
+export type View = "usher-entry" | "usher-bets" | "operator-dashboard" | "draws" | "ushers" | "reports" | "admin-operators" | "admin-billing";
 
 interface ShellProps {
   user: AppUser;
@@ -13,17 +13,25 @@ interface ShellProps {
 }
 
 export function Shell({user, view, setView, signOut, children}: ShellProps) {
-  const isAdmin = user.role === "admin" || user.role === "superAdmin";
-  const nav = isAdmin
-    ? [
-        ["admin-dashboard", Gauge, "Risk"],
-        ["draws", Settings, "Draws"],
-        ["reports", Activity, "Reports"],
-      ]
-    : [
-        ["agent-entry", PlusCircle, "Entry"],
-        ["agent-bets", ClipboardList, "Bets"],
-      ];
+  const nav =
+    user.role === "admin"
+      ? [
+          ["admin-operators", ShieldCheck, "Operators"],
+          ["admin-billing", CreditCard, "Billing"],
+          ["reports", Activity, "Reports"],
+        ]
+      : user.role === "operator"
+        ? [
+            ["operator-dashboard", LayoutDashboard, "Live"],
+            ["usher-entry", PlusCircle, "Direct"],
+            ["draws", Settings, "Draws"],
+            ["ushers", Users, "Ushers"],
+            ["reports", Activity, "Reports"],
+          ]
+        : [
+            ["usher-entry", PlusCircle, "Entry"],
+            ["usher-bets", ClipboardList, "Bets"],
+          ];
 
   return (
     <div className="app-shell">
@@ -31,8 +39,8 @@ export function Shell({user, view, setView, signOut, children}: ShellProps) {
         <div className="brand">
           <ShieldCheck size={22} />
           <div>
-            <strong>STL Risk Monitor</strong>
-            <span>{user.branchId || "main"}</span>
+            <strong>STL Operations</strong>
+            <span>{user.operatorId || "platform"}</span>
           </div>
         </div>
         <nav>

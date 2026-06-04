@@ -44,8 +44,8 @@ export function useAuth(): AuthState & {
                 uid: data.uid ?? snap.id,
                 name: data.name ?? "",
                 email: data.email ?? firebaseUser.email ?? "",
-                role: data.role ?? "agent",
-                branchId: data.branchId ?? "",
+                role: data.role ?? "usher",
+                operatorId: data.operatorId ?? "",
                 active: data.active === true,
               }
             : null,
@@ -70,7 +70,7 @@ export function useAuth(): AuthState & {
         await signInWithEmailAndPassword(auth, email, password);
       },
       signOutUser: () => signOut(auth),
-      isAdmin: profile?.role === "admin" || profile?.role === "superAdmin",
+      isAdmin: profile?.role === "admin",
     }),
     [authReady, error, firebaseUser, profile, profileReady],
   );
