@@ -25,7 +25,7 @@ class BetService {
       _db
           .collection('bets')
           .where('drawId', isEqualTo: drawId)
-          .where('agentId', isEqualTo: agentId)
+          .where('createdBy', isEqualTo: agentId)
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .snapshots()
@@ -35,7 +35,7 @@ class BetService {
       .collection('bets')
       .where('drawId', isEqualTo: drawId)
       .where('status',
-          whereIn: [BetStatus.accepted.name, BetStatus.pendingApproval.name])
+          whereIn: [BetStatus.accepted.name, BetStatus.edited.name])
       .orderBy('createdAt', descending: true)
       .limit(limit)
       .snapshots()
@@ -51,7 +51,7 @@ class BetService {
   Stream<List<Bet>> watchPendingApprovals(String drawId) => _db
       .collection('bets')
       .where('drawId', isEqualTo: drawId)
-      .where('status', isEqualTo: BetStatus.pendingApproval.name)
+      .where('status', isEqualTo: BetStatus.rejected.name)
       .orderBy('createdAt', descending: true)
       .snapshots()
       .map((snap) => snap.docs.map(Bet.fromFirestore).toList());
@@ -71,15 +71,16 @@ class BetService {
     required num amount,
     required String customerRef,
   }) async {
-    final result = await _functions.httpsCallable('submitBet').call({
+    final result = await _functions.httpsCallable('submitBetSlip').call({
       'drawId': draw.drawId,
-      'number': number,
-      'amount': amount,
-      'customerRef': customerRef,
+      'bettorName': customerRef.isEmpty ? 'Walk-in' : customerRef,
+      'lines': [
+        {'number': number, 'amount': amount}
+      ],
     });
     final data = Map<String, dynamic>.from(result.data as Map);
     return BetSubmissionResult(
-      betId: data['betId'] as String,
+      betId: data['slipId'] as String,
       status: betStatusFromString(data['status'] as String),
       message: data['message'] as String,
     );
@@ -91,20 +92,19 @@ class BetService {
     required Draw draw,
     required String reason,
   }) {
-    return _functions.httpsCallable('requestVoid').call({
-      'betId': bet.betId,
+    return _functions.httpsCallable('cancelBetSlipBeforeCutoff').call({
+      'slipId': bet.slipId,
       'reason': reason,
     });
   }
 
   Future<void> approveBet(Bet bet, AppUser admin) async {
-    await _functions.httpsCallable('approveBet').call({'betId': bet.betId});
+    await _functions.httpsCallable('markBetPaid').call({'betId': bet.betId});
   }
 
   Future<void> rejectBet(Bet bet, AppUser admin, String reason) {
-    return _functions.httpsCallable('rejectBet').call({
-      'betId': bet.betId,
-      'reason': reason,
-    });
+    return _functions
+        .httpsCallable('cancelBetSlipBeforeCutoff')
+        .call({'slipId': bet.slipId, 'reason': reason});
   }
 }

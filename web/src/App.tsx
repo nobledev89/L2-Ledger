@@ -12,15 +12,18 @@ import {Reports} from "./pages/Reports";
 import {OperatorManagement} from "./pages/OperatorManagement";
 import {UsherManagement} from "./pages/UsherManagement";
 import {Billing} from "./pages/Billing";
+import {StaffManagement} from "./pages/StaffManagement";
 
 export function App() {
   const auth = useAuth();
-  const isAdmin = auth.profile?.role === "admin";
-  const operators = useOperators(Boolean(isAdmin));
+  const isSuperAdmin = auth.profile?.role === "superAdmin";
+  const isOperatorStaff = Boolean(auth.profile && ["operator", "coOperator", "manager"].includes(auth.profile.role));
+  const canSeeFinancial = Boolean(auth.profile && ["superAdmin", "operator", "coOperator"].includes(auth.profile.role));
+  const operators = useOperators(Boolean(isSuperAdmin));
   const [adminOperatorId, setAdminOperatorId] = useState("");
-  const operatorId = isAdmin ? adminOperatorId : auth.profile?.operatorId ?? "";
+  const operatorId = isSuperAdmin ? adminOperatorId : auth.profile?.operatorId ?? "";
   const operator = useOperator(operatorId);
-  const draws = useDraws(operatorId, Boolean(isAdmin && !operatorId));
+  const draws = useDraws(operatorId, Boolean(isSuperAdmin && !operatorId));
   const [view, setView] = useState<View>("usher-entry");
   const [selectedDrawId, setSelectedDrawId] = useState("");
 
@@ -34,7 +37,7 @@ export function App() {
 
   useEffect(() => {
     if (!auth.profile) return;
-    setView(auth.profile.role === "admin" ? "admin-operators" : auth.profile.role === "operator" ? "operator-dashboard" : "usher-entry");
+    setView(auth.profile.role === "superAdmin" ? "admin-operators" : isOperatorStaff ? "operator-dashboard" : "usher-entry");
   }, [auth.profile?.uid, auth.profile?.role]);
 
   useEffect(() => {
@@ -66,7 +69,7 @@ export function App() {
 
   return (
     <Shell user={auth.profile} view={view} setView={setView} signOut={auth.signOutUser}>
-      {isAdmin && (
+      {isSuperAdmin && (
         <div className="admin-scope">
           <label className="field">
             Operator scope
@@ -96,8 +99,9 @@ export function App() {
         />
       )}
       {view === "draws" && <DrawManagement user={auth.profile} operator={operator.data} draws={draws.data} />}
+      {view === "staff" && <StaffManagement user={auth.profile} operatorId={operatorId} />}
       {view === "ushers" && <UsherManagement user={auth.profile} operatorId={operatorId} />}
-      {view === "reports" && <Reports user={auth.profile} operatorId={operatorId} admin={Boolean(isAdmin)} />}
+      {view === "reports" && <Reports user={auth.profile} operatorId={operatorId} admin={Boolean(isSuperAdmin)} financial={canSeeFinancial} />}
       {view === "admin-operators" && <OperatorManagement />}
       {view === "admin-billing" && <Billing operatorId={operatorId} admin />}
     </Shell>

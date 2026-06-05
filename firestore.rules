@@ -22,12 +22,16 @@ service cloud.firestore {
       return profile().data.operatorId;
     }
 
-    function admin() {
-      return activeUser() && role() == 'admin';
+    function superAdmin() {
+      return activeUser() && role() == 'superAdmin' && request.auth.token.email == 'dpnh1989@gmail.com';
     }
 
-    function operator() {
-      return activeUser() && role() == 'operator';
+    function operatorStaff() {
+      return activeUser() && role() in ['operator', 'coOperator', 'manager'];
+    }
+
+    function financialStaff() {
+      return activeUser() && role() in ['operator', 'coOperator'];
     }
 
     function usher() {
@@ -38,57 +42,81 @@ service cloud.firestore {
       return data.operatorId == operatorId();
     }
 
+    function staffSameOperator(data) {
+      return operatorStaff() && sameOperator(data);
+    }
+
     match /users/{uid} {
-      allow read: if activeUser() && (uid == request.auth.uid || admin() || (operator() && resource.data.operatorId == operatorId()));
+      allow read: if (signedIn() && uid == request.auth.uid && request.auth.token.email == 'dpnh1989@gmail.com')
+        || activeUser() && (
+        uid == request.auth.uid
+        || superAdmin()
+        || sameOperator(resource.data)
+      );
       allow write: if false;
     }
 
     match /operators/{id} {
-      allow read: if admin() || (activeUser() && id == operatorId());
+      allow read: if superAdmin() || (activeUser() && id == operatorId());
+      allow write: if false;
+    }
+
+    match /coOperators/{id} {
+      allow read: if superAdmin() || staffSameOperator(resource.data);
+      allow write: if false;
+    }
+
+    match /managers/{id} {
+      allow read: if superAdmin() || staffSameOperator(resource.data);
       allow write: if false;
     }
 
     match /ushers/{id} {
-      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow read: if superAdmin() || staffSameOperator(resource.data) || (usher() && id == request.auth.uid);
       allow write: if false;
     }
 
     match /draws/{id} {
-      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow read: if superAdmin() || (activeUser() && sameOperator(resource.data));
+      allow write: if false;
+    }
+
+    match /blockedNumbers/{id} {
+      allow read: if superAdmin() || (activeUser() && sameOperator(resource.data));
       allow write: if false;
     }
 
     match /betSlips/{id} {
-      allow read: if admin()
-        || (operator() && sameOperator(resource.data))
+      allow read: if superAdmin()
+        || staffSameOperator(resource.data)
         || (usher() && resource.data.createdBy == request.auth.uid);
       allow write: if false;
     }
 
     match /bets/{id} {
-      allow read: if admin()
-        || (operator() && sameOperator(resource.data))
+      allow read: if superAdmin()
+        || staffSameOperator(resource.data)
         || (usher() && resource.data.createdBy == request.auth.uid);
       allow write: if false;
     }
 
     match /drawTallies/{drawId}/numbers/{number} {
-      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow read: if superAdmin() || (activeUser() && sameOperator(resource.data));
       allow write: if false;
     }
 
     match /dailyReports/{id} {
-      allow read: if admin() || (activeUser() && sameOperator(resource.data));
+      allow read: if superAdmin() || financialStaff() && sameOperator(resource.data);
       allow write: if false;
     }
 
     match /operatorBillingWeeks/{id} {
-      allow read: if admin() || (operator() && sameOperator(resource.data));
+      allow read: if superAdmin() || financialStaff() && sameOperator(resource.data);
       allow write: if false;
     }
 
     match /auditLogs/{id} {
-      allow read: if admin() || (operator() && sameOperator(resource.data));
+      allow read: if superAdmin() || staffSameOperator(resource.data);
       allow write: if false;
     }
   }

@@ -19,40 +19,42 @@ Enable Firebase Authentication email/password and Cloud Firestore before running
 
 ## Seed Data
 
-Create at least one admin user document after signing up or manually creating a Firebase Auth user:
+The only super admin account is:
 
 ```text
-users/{uid}
-uid: "{uid}"
-name: "Admin"
-email: "admin@example.com"
+email: "dpnh1989@gmail.com"
+password: "Password123" for demo/testing only
 role: "superAdmin"
-branchId: "main"
-active: true
-createdAt: server timestamp
-updatedAt: server timestamp
 ```
 
-Create a branch:
+After signing in as `dpnh1989@gmail.com`, use the web Operators screen to seed demo data. The seeder creates real Firebase Auth users:
 
 ```text
-branches/main
-name: "Main Branch"
-area: "Metro"
-active: true
+operator1@test.local / Password123
+cooperator1@test.local / Password123
+manager1@test.local / Password123
+usher1-1@test.local through usher1-5@test.local / Password123
+
+operator2@test.local / Password123
+cooperator2@test.local / Password123
+manager2@test.local / Password123
+usher2-1@test.local through usher2-5@test.local / Password123
 ```
 
-Create an open draw from the app's Draw Management screen, or seed:
+The demo data includes two operators, one co-operator per operator, one manager per operator, five ushers per operator, fixed draws from five days back through three days forward, demo bets, reports, and sample blocked red numbers.
+
+Create fixed daily draws from Draw Management, or seed:
 
 ```text
 draws/{drawId}
-gameType: "STL 2D"
+operatorId: "{operatorId}"
+drawDate: "YYYY-MM-DD"
+drawSlot: "2pm" | "5pm" | "9pm"
 drawTime: timestamp
 cutoffTime: timestamp
 status: "open"
-officialResult: ""
-defaultPayoutMultiplier: 400
-createdBy: "{adminUid}"
+payoutMultiplier: 400
+blockedNumbers: []
 createdAt: server timestamp
 updatedAt: server timestamp
 ```
@@ -104,7 +106,12 @@ Native Android/iOS changes, new permissions, plugin native changes, signing chan
 ## Notes
 
 - Critical writes are handled by callable Cloud Functions:
-  `submitBet`, `requestVoid`, `approveBet`, `rejectBet`, `setRiskConfig`, `createDraw`, and `updateDrawStatus`.
+  `submitBetSlip`, `cancelBetSlipBeforeCutoff`, `createFixedDrawsForDate`,
+  `enterWinningNumber`, `markBetPaid`, `blockNumberForDraw`,
+  `unblockNumberForDraw`, `addOperatorWithLogin`, `addCoOperatorWithLogin`,
+  `addManagerWithLogin`, `addUsherWithLogin`, `computeDailyReport`,
+  `computeWeeklyBilling`, `markBillingPaid`, `lockOverdueOperators`, and
+  `seedDemoData`.
 - Firestore rules deny direct client writes to bets, draws, tallies, risk configs, and audit logs.
 - Firebase Auth email/password must be enabled in the Firebase Console.
 - TODO: add Firebase Hosting admin dashboard when web support is prioritized.

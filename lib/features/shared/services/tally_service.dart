@@ -31,14 +31,12 @@ class TallyService {
     required RiskConfig config,
     required String updatedBy,
   }) {
-    return _functions.httpsCallable('setRiskConfig').call({
+    final callable =
+        config.manuallyBlocked ? 'blockNumberForDraw' : 'unblockNumberForDraw';
+    return _functions.httpsCallable(callable).call({
       'drawId': drawId,
       'number': config.number,
-      'riskLimit': config.riskLimit,
-      'warningThresholdPercent': config.warningThresholdPercent,
-      'orangeThresholdPercent': config.orangeThresholdPercent,
-      'blockThresholdPercent': config.blockThresholdPercent,
-      'manuallyBlocked': config.manuallyBlocked,
+      'reason': 'Updated from mobile',
     }).then((_) {});
   }
 

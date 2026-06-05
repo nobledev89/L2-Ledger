@@ -26,6 +26,8 @@ import type {
   DrawSlot,
   DrawStatus,
   FeeMode,
+  CoOperator,
+  Manager,
   OperatorAccount,
   PendingSlip,
   Tally,
@@ -103,6 +105,7 @@ function mapOperator(id: string, data: DocumentData): OperatorAccount {
   return {
     operatorId: data.operatorId ?? id,
     name: data.name ?? "",
+    organizationName: data.organizationName ?? data.name ?? "",
     contactName: data.contactName ?? "",
     contactPhone: data.contactPhone ?? "",
     active: data.active === true,
@@ -114,6 +117,7 @@ function mapOperator(id: string, data: DocumentData): OperatorAccount {
     feePercent: Number(data.feePercent ?? 0),
     feePerUsher: Number(data.feePerUsher ?? 0),
     lockReason: data.lockReason ?? "",
+    primaryOperatorUserId: data.primaryOperatorUserId ?? "",
   };
 }
 
@@ -130,6 +134,30 @@ function mapUsher(id: string, data: DocumentData): Usher {
   };
 }
 
+function mapManager(id: string, data: DocumentData): Manager {
+  return {
+    managerId: data.managerId ?? id,
+    userId: data.userId ?? "",
+    operatorId: data.operatorId ?? "",
+    name: data.name ?? "",
+    email: data.email ?? "",
+    active: data.active === true,
+  };
+}
+
+function mapCoOperator(id: string, data: DocumentData): CoOperator {
+  return {
+    coOperatorId: data.coOperatorId ?? id,
+    userId: data.userId ?? "",
+    operatorId: data.operatorId ?? "",
+    name: data.name ?? "",
+    email: data.email ?? "",
+    contactPhone: data.contactPhone ?? "",
+    sharePercent: Number(data.sharePercent ?? 0),
+    active: data.active === true,
+  };
+}
+
 function mapDraw(id: string, data: DocumentData): Draw {
   return {
     drawId: data.drawId ?? id,
@@ -140,6 +168,7 @@ function mapDraw(id: string, data: DocumentData): Draw {
     cutoffTime: toDate(data.cutoffTime) ?? new Date(),
     status: data.status ?? "locked",
     winningNumber: data.winningNumber ?? "",
+    blockedNumbers: Array.isArray(data.blockedNumbers) ? data.blockedNumbers : [],
     payoutMultiplier: Number(data.payoutMultiplier ?? data.defaultPayoutMultiplier ?? 400),
   };
 }
@@ -198,6 +227,7 @@ function mapTally(id: string, data: DocumentData): Tally {
     totalAmount: Number(data.totalAmount ?? 0),
     potentialPayout: Number(data.potentialPayout ?? 0),
     betCount: Number(data.betCount ?? 0),
+    blocked: data.blocked === true,
   };
 }
 
@@ -253,6 +283,16 @@ export function useOperator(operatorId?: string) {
 export function useUshers(operatorId?: string, admin = false) {
   const constraints: QueryConstraint[] = operatorId ? [where("operatorId", "==", operatorId), orderBy("name", "asc")] : [orderBy("name", "asc")];
   return useCollection(operatorId || admin ? "ushers" : null, mapUsher, constraints, `ushers:${operatorId ?? "all"}:${admin}`);
+}
+
+export function useManagers(operatorId?: string, admin = false) {
+  const constraints: QueryConstraint[] = operatorId ? [where("operatorId", "==", operatorId), orderBy("name", "asc")] : [orderBy("name", "asc")];
+  return useCollection(operatorId || admin ? "managers" : null, mapManager, constraints, `managers:${operatorId ?? "all"}:${admin}`);
+}
+
+export function useCoOperators(operatorId?: string, admin = false) {
+  const constraints: QueryConstraint[] = operatorId ? [where("operatorId", "==", operatorId), orderBy("name", "asc")] : [orderBy("name", "asc")];
+  return useCollection(operatorId || admin ? "coOperators" : null, mapCoOperator, constraints, `coOperators:${operatorId ?? "all"}:${admin}`);
 }
 
 export function useDraws(operatorId?: string, admin = false) {
@@ -324,15 +364,26 @@ export const api = {
   updateDrawConfig: (data: {drawId: string; cutoffTimeMillis: number; payoutMultiplier: number; status: DrawStatus}) => call<{ok: true}>("updateDrawConfig", data),
   addUsher: (data: {operatorId: string; userId: string; name: string; compensationMode: CompensationMode; salaryAmount: number; percentage: number}) =>
     call<{usherId: string}>("addUsher", data),
+  addUsherWithLogin: (data: {operatorId: string; email: string; password: string; name: string; compensationMode: CompensationMode; salaryAmount: number; percentage: number}) =>
+    call<{usherId: string; uid: string}>("addUsherWithLogin", data),
+  addManagerWithLogin: (data: {operatorId: string; email: string; password: string; name: string}) =>
+    call<{managerId: string; uid: string}>("addManagerWithLogin", data),
+  addCoOperatorWithLogin: (data: {operatorId: string; email: string; password: string; name: string; contactPhone: string; sharePercent: number}) =>
+    call<{coOperatorId: string; uid: string}>("addCoOperatorWithLogin", data),
   updateUsher: (data: {usherId: string; active: boolean; compensationMode: CompensationMode; salaryAmount: number; percentage: number}) => call<{ok: true}>("updateUsher", data),
   addOperator: (data: {name: string; contactName: string; contactPhone: string; defaultPayoutMultiplier: number; feeMode: FeeMode; feePercent: number; feePerUsher: number; trialDays: number}) =>
     call<{operatorId: string}>("addOperator", data),
+  addOperatorWithLogin: (data: {name: string; email: string; password: string; contactName: string; contactPhone: string; defaultPayoutMultiplier: number; feeMode: FeeMode; feePercent: number; feePerUsher: number; trialDays: number}) =>
+    call<{operatorId: string; uid: string}>("addOperatorWithLogin", data),
   updateOperatorBilling: (data: {operatorId: string; billingStatus: string; feeMode: FeeMode; feePercent: number; feePerUsher: number; trialEndsAtMillis?: number; lockReason?: string}) =>
     call<{ok: true}>("updateOperatorBilling", data),
   computeDailyReport: (operatorId: string, date: string) => call<{ok: true}>("computeDailyReport", {operatorId, date}),
   computeWeeklyBilling: (operatorId: string, weekStartDate: string) => call<{ok: true}>("computeWeeklyBilling", {operatorId, weekStartDate}),
   markBillingPaid: (billingId: string) => call<{ok: true}>("markBillingPaid", {billingId}),
   lockOverdueOperators: () => call<{locked: number}>("lockOverdueOperators", {}),
+  blockNumberForDraw: (drawId: string, number: string, reason: string) => call<{ok: true}>("blockNumberForDraw", {drawId, number, reason}),
+  unblockNumberForDraw: (drawId: string, number: string) => call<{ok: true}>("unblockNumberForDraw", {drawId, number}),
+  seedDemoData: () => call<Record<string, string[]>>("seedDemoData", {password: "Password123"}),
   syncPendingSlip: (slip: PendingSlip) =>
     call<{slipId: string; referenceCode: string; status: BetStatus; message: string}>("submitBetSlip", {
       ...slip,

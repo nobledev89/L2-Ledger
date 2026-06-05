@@ -7,6 +7,7 @@ import type {FeeMode} from "../lib/types";
 export function OperatorManagement() {
   const operators = useOperators(true);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [multiplier, setMultiplier] = useState("400");
@@ -19,8 +20,10 @@ export function OperatorManagement() {
   async function add(event: FormEvent) {
     event.preventDefault();
     setMessage("");
-    await api.addOperator({
+    await api.addOperatorWithLogin({
       name,
+      email,
+      password: "Password123",
       contactName,
       contactPhone,
       defaultPayoutMultiplier: Number(multiplier),
@@ -30,9 +33,16 @@ export function OperatorManagement() {
       trialDays: Number(trialDays),
     });
     setName("");
+    setEmail("");
     setContactName("");
     setContactPhone("");
-    setMessage("Operator added.");
+    setMessage("Operator login created with Password123.");
+  }
+
+  async function seedDemo() {
+    setMessage("Seeding demo data...");
+    await api.seedDemoData();
+    setMessage("Demo data seeded. Test password is Password123.");
   }
 
   return (
@@ -47,6 +57,7 @@ export function OperatorManagement() {
         <h3>Add operator</h3>
         <div className="form-grid">
           <label>Operator name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label>Login email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Contact name<input value={contactName} onChange={(event) => setContactName(event.target.value)} /></label>
           <label>Contact phone<input value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} /></label>
           <label>Default multiplier<input type="number" min="1" value={multiplier} onChange={(event) => setMultiplier(event.target.value)} /></label>
@@ -61,7 +72,10 @@ export function OperatorManagement() {
           <label>Free trial days<input type="number" min="0" value={trialDays} onChange={(event) => setTrialDays(event.target.value)} /></label>
         </div>
         {message && <div className="notice">{message}</div>}
-        <button className="primary"><Save size={18} /> Add operator</button>
+        <div className="actions-row">
+          <button className="primary"><Save size={18} /> Add operator</button>
+          <button className="secondary" type="button" onClick={seedDemo}>Seed demo data</button>
+        </div>
       </form>
       <div className="table-wrap">
         <table>

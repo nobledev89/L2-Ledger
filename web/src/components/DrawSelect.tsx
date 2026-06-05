@@ -14,7 +14,7 @@ export function DrawSelect({draws, selectedId, setSelectedId}: DrawSelectProps) 
       <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
         {draws.map((draw) => (
           <option key={draw.drawId} value={draw.drawId}>
-            {draw.drawDate} · {drawSlotLabel(draw.drawSlot)} · cutoff {dateTime(draw.cutoffTime)} · {draw.status}
+            {draw.drawDate} - {drawSlotLabel(draw.drawSlot)} - cutoff {dateTime(draw.cutoffTime)} - {draw.status}
           </option>
         ))}
       </select>

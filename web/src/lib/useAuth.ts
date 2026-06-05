@@ -15,6 +15,8 @@ export function useAuth(): AuthState & {
   signIn: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isOperatorStaff: boolean;
 } {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
@@ -38,6 +40,18 @@ export function useAuth(): AuthState & {
       doc(db, "users", firebaseUser.uid),
       (snap) => {
         const data = snap.data();
+        if (!data && firebaseUser.email?.toLowerCase() === "dpnh1989@gmail.com") {
+          setProfile({
+            uid: firebaseUser.uid,
+            name: "Super Admin",
+            email: firebaseUser.email,
+            role: "superAdmin",
+            operatorId: "",
+            active: true,
+          });
+          setProfileReady(true);
+          return;
+        }
         setProfile(
           data
             ? {
@@ -70,7 +84,9 @@ export function useAuth(): AuthState & {
         await signInWithEmailAndPassword(auth, email, password);
       },
       signOutUser: () => signOut(auth),
-      isAdmin: profile?.role === "admin",
+      isAdmin: profile?.role === "superAdmin",
+      isSuperAdmin: profile?.role === "superAdmin",
+      isOperatorStaff: Boolean(profile && ["operator", "coOperator", "manager"].includes(profile.role)),
     }),
     [authReady, error, firebaseUser, profile, profileReady],
   );

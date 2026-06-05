@@ -496,6 +496,7 @@ select:focus {
 }
 
 .risk-cell {
+  background: #52616d;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 7px;
   color: white;
@@ -506,9 +507,13 @@ select:focus {
   transition: filter 120ms ease, transform 120ms ease;
 }
 
-.risk-cell:hover {
+.risk-cell:hover:not(:disabled) {
   filter: brightness(1.04);
   transform: translateY(-1px);
+}
+
+.risk-cell:disabled {
+  cursor: default;
 }
 
 .risk-cell strong {

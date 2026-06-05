@@ -1,6 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum BetStatus { accepted, pendingApproval, rejected, voidRequested, voided }
+enum BetStatus {
+  pendingSync,
+  accepted,
+  edited,
+  cancelled,
+  won,
+  lost,
+  paid,
+  rejected
+}
 
 BetStatus betStatusFromString(String value) => BetStatus.values.firstWhere(
       (status) => status.name == value,
@@ -10,76 +19,71 @@ BetStatus betStatusFromString(String value) => BetStatus.values.firstWhere(
 class Bet {
   const Bet({
     required this.betId,
+    required this.slipId,
+    required this.referenceCode,
+    required this.operatorId,
+    required this.usherId,
+    required this.createdBy,
+    required this.createdByRole,
+    required this.bettorName,
     required this.drawId,
-    required this.agentId,
-    required this.branchId,
-    required this.gameType,
+    required this.drawDate,
+    required this.drawSlot,
     required this.number,
     required this.amount,
     required this.payoutMultiplier,
-    required this.exposure,
+    required this.potentialPayout,
     required this.status,
-    required this.customerRef,
     this.createdAt,
     this.updatedAt,
-    this.approvedBy,
-    this.approvedAt,
-    this.voidReason,
   });
 
   final String betId;
+  final String slipId;
+  final String referenceCode;
+  final String operatorId;
+  final String? usherId;
+  final String createdBy;
+  final String createdByRole;
+  final String bettorName;
   final String drawId;
-  final String agentId;
-  final String branchId;
-  final String gameType;
+  final String drawDate;
+  final String drawSlot;
   final String number;
   final num amount;
   final num payoutMultiplier;
-  final num exposure;
+  final num potentialPayout;
   final BetStatus status;
-  final String customerRef;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  final String? approvedBy;
-  final DateTime? approvedAt;
-  final String? voidReason;
+
+  String get agentId => createdBy;
+  String get branchId => operatorId;
+  String get gameType => 'STL 2D';
+  String get customerRef => referenceCode;
+  num get exposure => potentialPayout;
 
   factory Bet.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
     return Bet(
       betId: data['betId'] as String? ?? doc.id,
+      slipId: data['slipId'] as String? ?? '',
+      referenceCode: data['referenceCode'] as String? ?? '',
+      operatorId: data['operatorId'] as String? ?? '',
+      usherId: data['usherId'] as String?,
+      createdBy: data['createdBy'] as String? ?? '',
+      createdByRole: data['createdByRole'] as String? ?? 'usher',
+      bettorName: data['bettorName'] as String? ?? '',
       drawId: data['drawId'] as String? ?? '',
-      agentId: data['agentId'] as String? ?? '',
-      branchId: data['branchId'] as String? ?? '',
-      gameType: data['gameType'] as String? ?? 'STL 2D',
+      drawDate: data['drawDate'] as String? ?? '',
+      drawSlot: data['drawSlot'] as String? ?? '',
       number: data['number'] as String? ?? '',
       amount: data['amount'] as num? ?? 0,
       payoutMultiplier: data['payoutMultiplier'] as num? ?? 400,
-      exposure: data['exposure'] as num? ?? 0,
+      potentialPayout: data['potentialPayout'] as num? ?? 0,
       status: betStatusFromString(data['status'] as String? ?? 'accepted'),
-      customerRef: data['customerRef'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-      approvedBy: data['approvedBy'] as String?,
-      approvedAt: (data['approvedAt'] as Timestamp?)?.toDate(),
-      voidReason: data['voidReason'] as String?,
     );
   }
-
-  Map<String, dynamic> toFirestore() => {
-        'betId': betId,
-        'drawId': drawId,
-        'agentId': agentId,
-        'branchId': branchId,
-        'gameType': gameType,
-        'number': number,
-        'amount': amount,
-        'payoutMultiplier': payoutMultiplier,
-        'exposure': exposure,
-        'status': status.name,
-        'customerRef': customerRef,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'approvedBy': approvedBy,
-        'voidReason': voidReason,
-      };
 }

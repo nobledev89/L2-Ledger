@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,9 +26,6 @@ class AdminDashboardScreen extends ConsumerWidget {
     final recent = draw == null
         ? const AsyncValue<List<Bet>>.data([])
         : ref.watch(recentBetsProvider(draw.drawId));
-    final pending = draw == null
-        ? const AsyncValue<List<Bet>>.data([])
-        : ref.watch(pendingApprovalsProvider(draw.drawId));
 
     return ShellScaffold(
       title: 'Admin Dashboard',
@@ -69,8 +64,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   data: (items) => _DashboardBody(
                       drawId: draw.drawId,
                       tallies: items,
-                      recent: recent,
-                      pending: pending),
+                      recent: recent),
                 ),
               ],
             ),
@@ -89,13 +83,11 @@ class _DashboardBody extends ConsumerWidget {
     required this.drawId,
     required this.tallies,
     required this.recent,
-    required this.pending,
   });
 
   final String drawId;
   final List<Tally> tallies;
   final AsyncValue<List<Bet>> recent;
-  final AsyncValue<List<Bet>> pending;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -192,47 +184,6 @@ class _DashboardBody extends ConsumerWidget {
                 ListTile(
                     title: Text('${bet.number} ${formatAmount(bet.amount)}'),
                     trailing: Text(bet.status.name)),
-            ],
-          ),
-        ),
-        Text('Pending Approvals',
-            style: Theme.of(context).textTheme.titleMedium),
-        pending.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (error, _) => Text('$error'),
-          data: (bets) => Column(
-            children: [
-              for (final bet in bets)
-                ListTile(
-                  title: Text('${bet.number} ${formatAmount(bet.amount)}'),
-                  subtitle: Text('Exposure ${formatAmount(bet.exposure)}'),
-                  trailing: Wrap(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.check_circle_outline),
-                        onPressed: () {
-                          final admin = ref.read(appUserProvider).valueOrNull;
-                          if (admin != null) {
-                            unawaited(ref
-                                .read(betServiceProvider)
-                                .approveBet(bet, admin));
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.cancel_outlined),
-                        onPressed: () {
-                          final admin = ref.read(appUserProvider).valueOrNull;
-                          if (admin != null) {
-                            unawaited(ref
-                                .read(betServiceProvider)
-                                .rejectBet(bet, admin, 'Rejected by admin'));
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
             ],
           ),
         ),

@@ -17,6 +17,49 @@
       ]
     },
     {
+      "collectionGroup": "managers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "name", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "coOperators",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "name", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "draws",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "operatorId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "drawTime", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "drawId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "drawId", "order": "ASCENDING"},
+        {"fieldPath": "number", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "bets",
       "queryScope": "COLLECTION",
       "fields": [

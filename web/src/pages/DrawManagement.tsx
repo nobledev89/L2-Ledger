@@ -20,7 +20,7 @@ export function DrawManagement({user, operator, draws}: DrawManagementProps) {
     event.preventDefault();
     setMessage("");
     const result = await api.createFixedDraws({
-      operatorId: user.role === "admin" ? operator?.operatorId : undefined,
+      operatorId: user.role === "superAdmin" ? operator?.operatorId : undefined,
       drawDate,
       cutoffMinutesBefore: cutoffs,
       payoutMultiplier: Number(payout),

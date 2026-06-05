@@ -65,6 +65,9 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
     const cleanLines = lines.map((line) => ({number: number2(String(line.number)), amount: Number(line.amount)}));
     if (!bettorName.trim()) return setMessage("Bettor name is required.");
     if (cleanLines.some((line) => !/^\d{2}$/.test(line.number) || line.amount < 10)) return setMessage("Each line needs a number from 00-99 and at least 10 pesos.");
+    const blocked = new Set(selected.blockedNumbers);
+    const blockedLine = cleanLines.find((line) => blocked.has(line.number));
+    if (blockedLine) return setMessage(`Number ${blockedLine.number} is blocked for this draw.`);
     if (selected.cutoffTime.getTime() <= Date.now()) return setMessage("Cutoff has passed for this draw.");
     if (locked) return setMessage("Operator billing is locked. Bets cannot be added.");
     setBusy(true);
@@ -116,7 +119,7 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
     <section className="workspace">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{user.role === "operator" ? "Direct operator bet" : "Usher"}</span>
+          <span className="eyebrow">{user.role === "usher" ? "Usher" : "Direct bet"}</span>
           <h2>Create Bet Slip</h2>
         </div>
         <div className={`sync-badge ${navigator.onLine ? "online" : "offline"}`}>

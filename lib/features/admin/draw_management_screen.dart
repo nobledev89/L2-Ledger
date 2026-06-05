@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/shell_scaffold.dart';
 import '../shared/models/draw.dart';
@@ -39,9 +38,15 @@ class DrawManagementScreen extends ConsumerWidget {
                     if (status == DrawStatus.completed) {
                       result = await _resultDialog(context) ?? '';
                     }
-                    await ref.read(drawServiceProvider).updateStatus(
-                        draw.drawId, status,
-                        officialResult: result);
+                    if (status == DrawStatus.completed && result.isNotEmpty) {
+                      await ref
+                          .read(drawServiceProvider)
+                          .enterWinningNumber(draw.drawId, result);
+                    } else {
+                      await ref
+                          .read(drawServiceProvider)
+                          .updateConfig(draw, status);
+                    }
                   },
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: DrawStatus.open, child: Text('Open')),
@@ -62,13 +67,11 @@ class DrawManagementScreen extends ConsumerWidget {
   Future<void> _createDraw(BuildContext context, WidgetRef ref) async {
     final actor = ref.read(appUserProvider).valueOrNull;
     if (actor == null) return;
-    final now = DateTime.now();
-    await ref.read(drawServiceProvider).createDraw(
-          gameType: AppConstants.defaultGameType,
-          drawTime: now.add(const Duration(hours: 2)),
-          cutoffTime: now.add(const Duration(hours: 1, minutes: 45)),
-          payoutMultiplier: AppConstants.defaultPayoutMultiplier,
-          createdBy: actor.uid,
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    await ref.read(drawServiceProvider).createFixedDraws(
+          operatorId: actor.isSuperAdmin ? null : actor.operatorId,
+          drawDate: today,
+          payoutMultiplier: 400,
         );
   }
 

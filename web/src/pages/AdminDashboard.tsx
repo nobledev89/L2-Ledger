@@ -17,11 +17,14 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
   const selected = draws.find((draw) => draw.drawId === selectedDrawId);
   const [usherFilter, setUsherFilter] = useState("all");
   const tallies = useTallies(selected?.drawId);
+  const canSettle = ["operator", "coOperator"].includes(user.role);
+  const canBlock = ["operator", "coOperator", "manager"].includes(user.role);
+  const readOnlyScope = user.role === "superAdmin";
   const bets = useBets({
     operatorId: operator?.operatorId,
     drawId: selected?.drawId,
     usherId: usherFilter === "all" ? undefined : usherFilter === "direct" ? null : usherFilter,
-    admin: user.role === "admin",
+    admin: user.role === "superAdmin",
   });
   const ushers = useUshers(operator?.operatorId);
 
@@ -50,6 +53,17 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
 
   async function markPaid(betId: string) {
     await api.markBetPaid(betId);
+  }
+
+  async function toggleBlock(number: string, blocked: boolean) {
+    if (!selected || readOnlyScope || !canBlock) return;
+    if (blocked) {
+      await api.unblockNumberForDraw(selected.drawId, number);
+      return;
+    }
+    const reason = window.prompt(`Reason to block ${number}`, "Red number") ?? "";
+    if (!reason.trim()) return;
+    await api.blockNumberForDraw(selected.drawId, number, reason.trim());
   }
 
   return (
@@ -88,7 +102,7 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
                 {ushers.data.map((usher) => <option key={usher.usherId} value={usher.usherId}>{usher.name}</option>)}
               </select>
             </label>
-            <button className="primary" onClick={completeDraw}><CheckCircle size={18} /> Enter winning number</button>
+            {canSettle && <button className="primary" onClick={completeDraw}><CheckCircle size={18} /> Enter winning number</button>}
           </div>
           <div className="dashboard-grid">
             <section className="risk-grid-panel">
@@ -96,13 +110,21 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
               <div className="risk-grid">
                 {Array.from({length: 100}, (_, index) => String(index).padStart(2, "0")).map((number) => {
                   const tally = tallies.data.find((item) => item.number === number);
+                  const blocked = selected.blockedNumbers.includes(number) || tally?.blocked === true;
                   const hot = Number(tally?.totalAmount ?? 0) > 0;
                   return (
-                    <div className={`risk-cell ${hot ? "green" : "blocked"}`} key={number}>
+                    <button
+                      type="button"
+                      className={`risk-cell ${blocked ? "blocked" : hot ? "green" : ""}`}
+                      key={number}
+                      onClick={() => toggleBlock(number, blocked)}
+                      disabled={!canBlock || readOnlyScope}
+                      title={blocked ? "Unblock number" : "Block number"}
+                    >
                       <strong>{number}</strong>
                       <span>{money(tally?.totalAmount ?? 0)}</span>
                       <span>{money(tally?.potentialPayout ?? 0)}</span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -122,8 +144,8 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
                 {bets.data.slice(0, 12).map((bet) => (
                   <div className="list-row wide" key={bet.betId}>
                     <strong>{bet.number}</strong>
-                    <span>{bet.bettorName} · {money(bet.amount)} · {bet.status}</span>
-                    {(bet.status === "won") && <button className="icon-button success" onClick={() => markPaid(bet.betId)} title="Mark paid"><Banknote size={18} /></button>}
+                    <span>{bet.bettorName} - {money(bet.amount)} - {bet.status}</span>
+                    {(bet.status === "won" && canSettle) && <button className="icon-button success" onClick={() => markPaid(bet.betId)} title="Mark paid"><Banknote size={18} /></button>}
                   </div>
                 ))}
               </section>

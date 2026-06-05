@@ -5,8 +5,8 @@ import {money} from "../lib/format";
 import type {AppUser, CompensationMode} from "../lib/types";
 
 export function UsherManagement({user, operatorId}: {user: AppUser; operatorId: string}) {
-  const ushers = useUshers(operatorId, user.role === "admin");
-  const [userId, setUserId] = useState("");
+  const ushers = useUshers(operatorId, user.role === "superAdmin");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [mode, setMode] = useState<CompensationMode>("salary");
   const [salary, setSalary] = useState("0");
@@ -16,10 +16,10 @@ export function UsherManagement({user, operatorId}: {user: AppUser; operatorId: 
   async function add(event: FormEvent) {
     event.preventDefault();
     setMessage("");
-    await api.addUsher({operatorId, userId, name, compensationMode: mode, salaryAmount: Number(salary), percentage: Number(percentage)});
-    setUserId("");
+    await api.addUsherWithLogin({operatorId, email, password: "Password123", name, compensationMode: mode, salaryAmount: Number(salary), percentage: Number(percentage)});
+    setEmail("");
     setName("");
-    setMessage("Usher added.");
+    setMessage("Usher login created with Password123.");
   }
 
   return (
@@ -33,7 +33,7 @@ export function UsherManagement({user, operatorId}: {user: AppUser; operatorId: 
       <form className="tool-panel" onSubmit={add}>
         <h3>Add usher</h3>
         <div className="form-grid">
-          <label>User UID<input value={userId} onChange={(event) => setUserId(event.target.value)} /></label>
+          <label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>Compensation
             <select value={mode} onChange={(event) => setMode(event.target.value as CompensationMode)}>
@@ -52,7 +52,7 @@ export function UsherManagement({user, operatorId}: {user: AppUser; operatorId: 
           <thead>
             <tr>
               <th>Name</th>
-              <th>User UID</th>
+              <th>Email / User UID</th>
               <th>Mode</th>
               <th>Salary</th>
               <th>Percent</th>

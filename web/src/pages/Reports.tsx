@@ -3,11 +3,11 @@ import {api, useAuditLogs, useBets, useDailyReports, useUshers} from "../lib/dat
 import {dateTime, money, shortDate} from "../lib/format";
 import type {AppUser} from "../lib/types";
 
-export function Reports({user, operatorId, admin}: {user: AppUser; operatorId: string; admin: boolean}) {
+export function Reports({user, operatorId, admin, financial}: {user: AppUser; operatorId: string; admin: boolean; financial: boolean}) {
   const [date, setDate] = useState(shortDate());
   const bets = useBets({operatorId, admin});
-  const reports = useDailyReports(operatorId, admin);
-  const logs = useAuditLogs(operatorId, admin || user.role === "operator");
+  const reports = useDailyReports(financial ? operatorId : undefined, admin && financial);
+  const logs = useAuditLogs(operatorId, admin || ["operator", "coOperator", "manager"].includes(user.role));
   const ushers = useUshers(operatorId, admin);
   const summary = useMemo(() => {
     const active = bets.data.filter((bet) => ["accepted", "edited", "won", "lost", "paid"].includes(bet.status));
@@ -26,21 +26,23 @@ export function Reports({user, operatorId, admin}: {user: AppUser; operatorId: s
     <section className="workspace">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{admin ? "Admin" : "Operator"}</span>
+          <span className="eyebrow">{admin ? "Super admin" : user.role}</span>
           <h2>Reports & Audit</h2>
         </div>
-        <div className="actions-row">
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-          <button className="secondary" onClick={compute}>Compute daily</button>
-        </div>
+        {financial && user.role !== "superAdmin" && (
+          <div className="actions-row">
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <button className="secondary" onClick={compute}>Compute daily</button>
+          </div>
+        )}
       </div>
       <div className="metrics">
         <div className="metric"><span>Gross stakes</span><strong>{money(summary.gross)}</strong></div>
-        <div className="metric"><span>Payouts</span><strong>{money(summary.payouts)}</strong></div>
-        <div className="metric"><span>Net daily income</span><strong>{money(summary.net)}</strong></div>
+        {financial && <div className="metric"><span>Payouts</span><strong>{money(summary.payouts)}</strong></div>}
+        {financial && <div className="metric"><span>Net daily income</span><strong>{money(summary.net)}</strong></div>}
         <div className="metric"><span>Bet lines</span><strong>{summary.count}</strong></div>
         <div className="metric"><span>Ushers</span><strong>{ushers.data.length}</strong></div>
-        <div className="metric"><span>Reports</span><strong>{reports.data.length}</strong></div>
+        {financial && <div className="metric"><span>Reports</span><strong>{reports.data.length}</strong></div>}
       </div>
       <div className="dashboard-grid">
         <section className="panel">
@@ -52,15 +54,17 @@ export function Reports({user, operatorId, admin}: {user: AppUser; operatorId: s
             </div>
           ))}
         </section>
-        <section className="panel">
-          <h3>Daily Reports</h3>
-          {reports.data.map((report) => (
-            <div className="list-row wide" key={report.id}>
-              <strong>{report.date}</strong>
-              <span>{money(report.grossStakes)} stakes · {money(report.payouts)} payouts · {money(report.netDailyIncome)} net</span>
-            </div>
-          ))}
-        </section>
+        {financial && (
+          <section className="panel">
+            <h3>Daily Reports</h3>
+            {reports.data.map((report) => (
+              <div className="list-row wide" key={report.id}>
+                <strong>{report.date}</strong>
+                <span>{money(report.grossStakes)} stakes - {money(report.payouts)} payouts - {money(report.netDailyIncome)} net</span>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
       <div className="table-wrap">
         <table>
@@ -77,9 +81,9 @@ export function Reports({user, operatorId, admin}: {user: AppUser; operatorId: s
             {logs.data.map((log) => (
               <tr key={`${log.entityId}-${log.action}-${log.createdAt?.getTime() ?? ""}`}>
                 <td>{dateTime(log.createdAt)}</td>
-                <td>{log.actorRole} · {log.actorId.slice(0, 8)}</td>
+                <td>{log.actorRole} - {log.actorId.slice(0, 8)}</td>
                 <td>{log.action}</td>
-                <td>{log.entityType} · {log.entityId.slice(0, 12)}</td>
+                <td>{log.entityType} - {log.entityId.slice(0, 12)}</td>
                 <td>{log.reason || "-"}</td>
               </tr>
             ))}

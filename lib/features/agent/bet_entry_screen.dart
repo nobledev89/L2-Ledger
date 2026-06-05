@@ -94,7 +94,8 @@ class _BetEntryScreenState extends ConsumerState<BetEntryScreen> {
             style: Theme.of(context).textTheme.displaySmall,
             onChanged: (_) => setState(() {}),
           ),
-          if (config?.manuallyBlocked == true)
+          if (selected?.blockedNumbers.contains(normalized) == true ||
+              config?.manuallyBlocked == true)
             const Text('This number is blocked for the selected draw.',
                 style: TextStyle(color: Colors.red)),
           if (config != null && !config.manuallyBlocked)
@@ -147,10 +148,16 @@ class _BetEntryScreenState extends ConsumerState<BetEntryScreen> {
       message = null;
     });
     try {
+      final normalized =
+          number.text.length <= 2 ? twoDigitNumber(number.text) : number.text;
+      if (draw.blockedNumbers.contains(normalized)) {
+        setState(() => message = 'This number is blocked for the selected draw.');
+        return;
+      }
       final result = await ref.read(betServiceProvider).submitBet(
             agent: user,
             draw: draw,
-            number: number.text,
+            number: normalized,
             amount: num.tryParse(amount.text) ?? 0,
             customerRef: customerRef.text.trim(),
           );

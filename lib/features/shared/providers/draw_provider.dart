@@ -8,11 +8,21 @@ final drawServiceProvider = Provider<DrawService>((ref) =>
     DrawService(ref.watch(firestoreProvider), ref.watch(functionsProvider)));
 
 final drawsProvider = StreamProvider<List<Draw>>(
-  (ref) => ref.watch(drawServiceProvider).watchAllDraws(),
+  (ref) {
+    final user = ref.watch(appUserProvider).valueOrNull;
+    return ref.watch(drawServiceProvider).watchAllDraws(
+          operatorId: user?.isSuperAdmin == true ? null : user?.operatorId,
+        );
+  },
 );
 
 final openDrawsProvider = StreamProvider<List<Draw>>(
-  (ref) => ref.watch(drawServiceProvider).watchOpenDraws(),
+  (ref) {
+    final user = ref.watch(appUserProvider).valueOrNull;
+    return ref.watch(drawServiceProvider).watchOpenDraws(
+          operatorId: user?.isSuperAdmin == true ? null : user?.operatorId,
+        );
+  },
 );
 
 final selectedDrawIdProvider = StateProvider<String?>((_) => null);

@@ -9,42 +9,59 @@ class DrawService {
   final FirebaseFirestore _db;
   final FirebaseFunctions _functions;
 
-  Stream<List<Draw>> watchOpenDraws() => _db
-      .collection('draws')
-      .where('status', whereIn: ['open', 'locked'])
-      .orderBy('drawTime')
-      .snapshots()
-      .map((snap) => snap.docs.map(Draw.fromFirestore).toList());
-
-  Stream<List<Draw>> watchAllDraws() => _db
-      .collection('draws')
-      .orderBy('drawTime', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs.map(Draw.fromFirestore).toList());
-
-  Future<String> createDraw({
-    required String gameType,
-    required DateTime drawTime,
-    required DateTime cutoffTime,
-    required num payoutMultiplier,
-    required String createdBy,
-  }) async {
-    final result = await _functions.httpsCallable('createDraw').call({
-      'gameType': gameType,
-      'drawTimeMillis': drawTime.millisecondsSinceEpoch,
-      'cutoffTimeMillis': cutoffTime.millisecondsSinceEpoch,
-      'defaultPayoutMultiplier': payoutMultiplier,
-    });
-    final data = Map<String, dynamic>.from(result.data as Map);
-    return data['drawId'] as String;
+  Stream<List<Draw>> watchOpenDraws({String? operatorId}) {
+    Query<Map<String, dynamic>> query = _db
+        .collection('draws')
+        .where('status', whereIn: ['open', 'locked']);
+    if (operatorId != null && operatorId.isNotEmpty) {
+      query = query.where('operatorId', isEqualTo: operatorId);
+    }
+    return query
+        .orderBy('drawTime')
+        .snapshots()
+        .map((snap) => snap.docs.map(Draw.fromFirestore).toList());
   }
 
-  Future<void> updateStatus(String drawId, DrawStatus status,
-      {String officialResult = ''}) {
-    return _functions.httpsCallable('updateDrawStatus').call({
-      'drawId': drawId,
+  Stream<List<Draw>> watchAllDraws({String? operatorId}) {
+    Query<Map<String, dynamic>> query = _db.collection('draws');
+    if (operatorId != null && operatorId.isNotEmpty) {
+      query = query.where('operatorId', isEqualTo: operatorId);
+    }
+    return query
+        .orderBy('drawTime', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(Draw.fromFirestore).toList());
+  }
+
+  Future<List<String>> createFixedDraws({
+    required String? operatorId,
+    required String drawDate,
+    required num payoutMultiplier,
+  }) async {
+    final result =
+        await _functions.httpsCallable('createFixedDrawsForDate').call({
+      if (operatorId != null && operatorId.isNotEmpty) 'operatorId': operatorId,
+      'drawDate': drawDate,
+      'cutoffMinutesBefore': {'2pm': 15, '5pm': 15, '9pm': 15},
+      'payoutMultiplier': payoutMultiplier,
+    });
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return (data['drawIds'] as List<dynamic>).map((item) => '$item').toList();
+  }
+
+  Future<void> updateConfig(Draw draw, DrawStatus status) {
+    return _functions.httpsCallable('updateDrawConfig').call({
+      'drawId': draw.drawId,
+      'cutoffTimeMillis': draw.cutoffTime.millisecondsSinceEpoch,
+      'payoutMultiplier': draw.payoutMultiplier,
       'status': status.name,
-      if (officialResult.isNotEmpty) 'officialResult': officialResult,
+    }).then((_) {});
+  }
+
+  Future<void> enterWinningNumber(String drawId, String winningNumber) {
+    return _functions.httpsCallable('enterWinningNumber').call({
+      'drawId': drawId,
+      'winningNumber': winningNumber,
     }).then((_) {});
   }
 }

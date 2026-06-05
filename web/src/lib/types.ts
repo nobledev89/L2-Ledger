@@ -1,6 +1,6 @@
 import type {Timestamp} from "firebase/firestore";
 
-export type Role = "usher" | "operator" | "admin";
+export type Role = "usher" | "manager" | "coOperator" | "operator" | "superAdmin";
 export type DrawSlot = "2pm" | "5pm" | "9pm";
 export type DrawStatus = "open" | "locked" | "completed";
 export type BetStatus = "pendingSync" | "accepted" | "edited" | "cancelled" | "won" | "lost" | "paid" | "rejected";
@@ -20,6 +20,7 @@ export interface AppUser {
 export interface OperatorAccount {
   operatorId: string;
   name: string;
+  organizationName: string;
   contactName: string;
   contactPhone: string;
   active: boolean;
@@ -31,6 +32,7 @@ export interface OperatorAccount {
   feePercent: number;
   feePerUsher: number;
   lockReason: string;
+  primaryOperatorUserId: string;
 }
 
 export interface Usher {
@@ -44,6 +46,26 @@ export interface Usher {
   percentage: number;
 }
 
+export interface Manager {
+  managerId: string;
+  userId: string;
+  operatorId: string;
+  name: string;
+  email: string;
+  active: boolean;
+}
+
+export interface CoOperator {
+  coOperatorId: string;
+  userId: string;
+  operatorId: string;
+  name: string;
+  email: string;
+  contactPhone: string;
+  sharePercent: number;
+  active: boolean;
+}
+
 export interface Draw {
   drawId: string;
   operatorId: string;
@@ -53,6 +75,7 @@ export interface Draw {
   cutoffTime: Date;
   status: DrawStatus;
   winningNumber: string;
+  blockedNumbers: string[];
   payoutMultiplier: number;
 }
 
@@ -67,7 +90,7 @@ export interface BetSlip {
   operatorId: string;
   usherId: string | null;
   createdBy: string;
-  createdByRole: "usher" | "operator";
+  createdByRole: "usher" | "operator" | "coOperator" | "manager";
   bettorName: string;
   drawId: string;
   drawDate: string;
@@ -88,7 +111,7 @@ export interface Bet {
   operatorId: string;
   usherId: string | null;
   createdBy: string;
-  createdByRole: "usher" | "operator";
+  createdByRole: "usher" | "operator" | "coOperator" | "manager";
   bettorName: string;
   drawId: string;
   drawDate: string;
@@ -110,6 +133,7 @@ export interface Tally {
   totalAmount: number;
   potentialPayout: number;
   betCount: number;
+  blocked: boolean;
 }
 
 export interface DailyReport {

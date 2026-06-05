@@ -34,7 +34,8 @@ class Tally {
     return Tally(
       number: data['number'] as String? ?? doc.id,
       totalAmount: data['totalAmount'] as num? ?? 0,
-      exposure: data['exposure'] as num? ?? 0,
+      exposure:
+          (data['potentialPayout'] as num?) ?? (data['exposure'] as num?) ?? 0,
       betCount: data['betCount'] as int? ?? 0,
       riskLimit: data['riskLimit'] as num? ?? 100000,
       riskStatus: data['riskStatus'] as String? ?? 'green',
