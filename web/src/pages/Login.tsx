@@ -1,5 +1,6 @@
-import {AlertCircle, LockKeyhole} from "lucide-react";
+import {AlertCircle, Eye, EyeOff, LockKeyhole} from "lucide-react";
 import {FormEvent, useState} from "react";
+import {Spinner} from "../components/Spinner";
 
 interface LoginProps {
   signIn: (email: string, password: string) => Promise<void>;
@@ -10,6 +11,7 @@ interface LoginProps {
 export function Login({signIn, authError, configMissing}: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,17 +56,29 @@ export function Login({signIn, authError, configMissing}: LoginProps) {
         </label>
         <label>
           Password
-          <input
-            autoComplete="current-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+          <div className="input-affix">
+            <input
+              autoComplete="current-password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </label>
         <button className="primary" disabled={busy || configMissing.length > 0}>
+          {busy ? <Spinner /> : null}
           {busy ? "Signing in..." : "Sign in"}
         </button>
+        <p className="login-footnote">Forgot your password? Contact your operator administrator to reset it.</p>
       </form>
     </main>
   );

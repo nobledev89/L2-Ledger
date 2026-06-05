@@ -1,6 +1,9 @@
 import {Save} from "lucide-react";
 import {FormEvent, useState} from "react";
+import {EmptyState} from "../components/EmptyState";
+import {Spinner} from "../components/Spinner";
 import {api, useCoOperators, useManagers} from "../lib/data";
+import {useAsyncAction} from "../lib/useAsyncAction";
 import type {AppUser} from "../lib/types";
 
 export function StaffManagement({user, operatorId}: {user: AppUser; operatorId: string}) {
@@ -8,7 +11,6 @@ export function StaffManagement({user, operatorId}: {user: AppUser; operatorId: 
   const coOperators = useCoOperators(operatorId, user.role === "superAdmin");
   const canAddCoOperator = user.role === "superAdmin" || user.role === "operator";
   const canAddManager = ["superAdmin", "operator", "coOperator"].includes(user.role);
-  const [message, setMessage] = useState("");
 
   return (
     <section className="workspace">
@@ -19,10 +21,9 @@ export function StaffManagement({user, operatorId}: {user: AppUser; operatorId: 
         </div>
       </div>
       <div className="dashboard-grid">
-        {canAddCoOperator && <CoOperatorForm operatorId={operatorId} setMessage={setMessage} />}
-        {canAddManager && <ManagerForm operatorId={operatorId} setMessage={setMessage} />}
+        {canAddCoOperator && <CoOperatorForm operatorId={operatorId} />}
+        {canAddManager && <ManagerForm operatorId={operatorId} />}
       </div>
-      {message && <div className="notice">{message}</div>}
       <div className="dashboard-grid">
         <section className="panel">
           <h3>Co-operators</h3>
@@ -32,7 +33,7 @@ export function StaffManagement({user, operatorId}: {user: AppUser; operatorId: 
               <span>{item.email} - {item.sharePercent}% share - {item.active ? "active" : "inactive"}</span>
             </div>
           ))}
-          {coOperators.data.length === 0 && <div className="notice">No co-operators.</div>}
+          {coOperators.data.length === 0 && <EmptyState title="No co-operators yet" hint="Add one using the form above." />}
         </section>
         <section className="panel">
           <h3>Managers</h3>
@@ -42,14 +43,15 @@ export function StaffManagement({user, operatorId}: {user: AppUser; operatorId: 
               <span>{item.email} - {item.active ? "active" : "inactive"}</span>
             </div>
           ))}
-          {managers.data.length === 0 && <div className="notice">No managers.</div>}
+          {managers.data.length === 0 && <EmptyState title="No managers yet" hint="Add one using the form above." />}
         </section>
       </div>
     </section>
   );
 }
 
-function CoOperatorForm({operatorId, setMessage}: {operatorId: string; setMessage: (value: string) => void}) {
+function CoOperatorForm({operatorId}: {operatorId: string}) {
+  const {busy, run} = useAsyncAction();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -57,19 +59,26 @@ function CoOperatorForm({operatorId, setMessage}: {operatorId: string; setMessag
 
   async function add(event: FormEvent) {
     event.preventDefault();
-    await api.addCoOperatorWithLogin({
-      operatorId,
-      name,
-      email,
-      password: "Password123",
-      contactPhone,
-      sharePercent: Number(sharePercent),
-    });
-    setName("");
-    setEmail("");
-    setContactPhone("");
-    setSharePercent("0");
-    setMessage("Co-operator login created with Password123.");
+    await run(
+      () =>
+        api.addCoOperatorWithLogin({
+          operatorId,
+          name,
+          email,
+          password: "Password123",
+          contactPhone,
+          sharePercent: Number(sharePercent),
+        }),
+      {
+        success: "Co-operator login created with temporary password Password123.",
+        onSuccess: () => {
+          setName("");
+          setEmail("");
+          setContactPhone("");
+          setSharePercent("0");
+        },
+      },
+    );
   }
 
   return (
@@ -81,21 +90,28 @@ function CoOperatorForm({operatorId, setMessage}: {operatorId: string; setMessag
         <label>Phone<input value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} /></label>
         <label>Share %<input type="number" min="0" max="100" value={sharePercent} onChange={(event) => setSharePercent(event.target.value)} /></label>
       </div>
-      <button className="primary"><Save size={18} /> Add co-operator</button>
+      <button className="primary" disabled={busy}>
+        {busy ? <Spinner /> : <Save size={18} aria-hidden />}
+        {busy ? "Adding..." : "Add co-operator"}
+      </button>
     </form>
   );
 }
 
-function ManagerForm({operatorId, setMessage}: {operatorId: string; setMessage: (value: string) => void}) {
+function ManagerForm({operatorId}: {operatorId: string}) {
+  const {busy, run} = useAsyncAction();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
   async function add(event: FormEvent) {
     event.preventDefault();
-    await api.addManagerWithLogin({operatorId, name, email, password: "Password123"});
-    setName("");
-    setEmail("");
-    setMessage("Manager login created with Password123.");
+    await run(() => api.addManagerWithLogin({operatorId, name, email, password: "Password123"}), {
+      success: "Manager login created with temporary password Password123.",
+      onSuccess: () => {
+        setName("");
+        setEmail("");
+      },
+    });
   }
 
   return (
@@ -105,7 +121,10 @@ function ManagerForm({operatorId, setMessage}: {operatorId: string; setMessage: 
         <label>Name<input required value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
       </div>
-      <button className="primary"><Save size={18} /> Add manager</button>
+      <button className="primary" disabled={busy}>
+        {busy ? <Spinner /> : <Save size={18} aria-hidden />}
+        {busy ? "Adding..." : "Add manager"}
+      </button>
     </form>
   );
 }

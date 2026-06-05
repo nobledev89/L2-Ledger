@@ -1,8 +1,13 @@
-import {Plus, Send, Trash2, Wifi, WifiOff, X} from "lucide-react";
+import {Plus, Send, Trash2, Wifi, WifiOff} from "lucide-react";
 import {FormEvent, useEffect, useMemo, useState} from "react";
 import {DrawSelect} from "../components/DrawSelect";
+import {Modal} from "../components/Modal";
+import {Spinner} from "../components/Spinner";
+import {useToast} from "../components/Toast";
 import {api} from "../lib/data";
 import {dateTime, drawSlotLabel, money, number2} from "../lib/format";
+import {statusLabel} from "../lib/labels";
+import {useOnlineStatus} from "../lib/useOnlineStatus";
 import type {AppUser, BetLineInput, Draw, OperatorAccount, PendingSlip} from "../lib/types";
 
 const queueKey = "stl.pendingSlips.v1";
@@ -27,6 +32,8 @@ interface ReferenceState {
 
 export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDrawId}: AgentEntryProps) {
   const selected = draws.find((draw) => draw.drawId === selectedDrawId);
+  const online = useOnlineStatus();
+  const toast = useToast();
   const [bettorName, setBettorName] = useState("");
   const [lines, setLines] = useState<BetLineInput[]>([{number: "", amount: 10}]);
   const [message, setMessage] = useState("");
@@ -37,7 +44,7 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
   const locked = operator?.billingStatus === "locked";
 
   useEffect(() => {
-    const sync = () => syncQueue(setPendingCount, setMessage);
+    const sync = () => syncQueue(setPendingCount, (msg) => toast.error(msg));
     sync();
     window.addEventListener("online", sync);
     const timer = window.setInterval(sync, 45000);
@@ -45,7 +52,7 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
       window.removeEventListener("online", sync);
       window.clearInterval(timer);
     };
-  }, []);
+  }, [toast]);
 
   function updateLine(index: number, patch: Partial<BetLineInput>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? {...line, ...patch} : line));
@@ -82,7 +89,7 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
     };
 
     try {
-      if (!navigator.onLine) {
+      if (!online) {
         if (user.role !== "usher") return setMessage("Direct operator bets require an online connection.");
         const item: PendingSlip = {
           clientSlipId: payload.clientSlipId,
@@ -122,9 +129,9 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
           <span className="eyebrow">{user.role === "usher" ? "Usher" : "Direct bet"}</span>
           <h2>Create Bet Slip</h2>
         </div>
-        <div className={`sync-badge ${navigator.onLine ? "online" : "offline"}`}>
-          {navigator.onLine ? <Wifi size={17} /> : <WifiOff size={17} />}
-          {pendingCount > 0 ? `${pendingCount} pending` : navigator.onLine ? "Online" : "Offline"}
+        <div className={`sync-badge ${online ? "online" : "offline"}`}>
+          {online ? <Wifi size={17} aria-hidden /> : <WifiOff size={17} aria-hidden />}
+          {pendingCount > 0 ? `${pendingCount} pending` : online ? "Online" : "Offline"}
         </div>
       </div>
       {locked && <div className="notice danger">Operator billing is locked. Ushers cannot add bets until payment is marked paid.</div>}
@@ -136,7 +143,7 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
             <strong>{drawSlotLabel(selected.drawSlot)}</strong>
             <span>Draw {dateTime(selected.drawTime)}</span>
             <span>Cutoff {dateTime(selected.cutoffTime)}</span>
-            <span className={`pill ${selected.status}`}>{selected.status}</span>
+            <span className={`pill ${selected.status}`}>{statusLabel(selected.status)}</span>
           </div>
         )}
         <label>
@@ -154,18 +161,27 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
                 Amount
                 <input inputMode="decimal" min="10" type="number" value={line.amount} onChange={(event) => updateLine(index, {amount: Number(event.target.value)})} />
               </label>
-              <button className="icon-button" type="button" onClick={() => removeLine(index)} title="Remove line"><Trash2 size={17} /></button>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => removeLine(index)}
+                disabled={lines.length === 1}
+                aria-label={`Remove number line ${index + 1}`}
+                title="Remove line"
+              >
+                <Trash2 size={17} />
+              </button>
             </div>
           ))}
         </div>
         <div className="actions-row">
-          <button className="secondary" type="button" onClick={addLine}><Plus size={17} /> Add number</button>
-          <strong>Total {money(total)}</strong>
+          <button className="secondary" type="button" onClick={addLine}><Plus size={17} aria-hidden /> Add number</button>
+          <strong className="spacer">Total {money(total)}</strong>
         </div>
-        {message && <div className="notice">{message}</div>}
+        {message && <div className="notice danger">{message}</div>}
         <button className="primary" disabled={busy || !selected || locked}>
-          <Send size={18} />
-          {busy ? "Submitting..." : navigator.onLine ? "Submit slip" : "Save offline"}
+          {busy ? <Spinner /> : <Send size={18} aria-hidden />}
+          {busy ? "Submitting..." : online ? "Submit slip" : "Save offline"}
         </button>
       </form>
       {reference && <ReferenceModal reference={reference} close={() => setReference(null)} />}
@@ -175,29 +191,26 @@ export function AgentEntry({user, operator, draws, selectedDrawId, setSelectedDr
 
 function ReferenceModal({reference, close}: {reference: ReferenceState; close: () => void}) {
   return (
-    <div className="modal-backdrop">
-      <div className="modal reference-modal">
-        <div className="modal-header">
-          <div>
-            <span className="eyebrow">{reference.synced ? "Synced reference" : "Pending sync reference"}</span>
-            <h2>{reference.referenceCode}</h2>
+    <Modal
+      eyebrow={reference.synced ? "Synced reference" : "Pending sync reference"}
+      title={reference.referenceCode}
+      size="md"
+      onClose={close}
+      footer={<button className="primary" type="button" onClick={close}>Done</button>}
+    >
+      <div className="reference-card">
+        <div><span>Bettor</span><strong>{reference.bettorName}</strong></div>
+        <div><span>Draw</span><strong>{reference.draw.drawDate} {drawSlotLabel(reference.draw.drawSlot)}</strong></div>
+        {reference.lines.map((line, index) => (
+          <div className="reference-line" key={`${line.number}-${index}`}>
+            <strong>{line.number}</strong>
+            <span>{money(line.amount)}</span>
           </div>
-          <button className="icon-button" type="button" onClick={close} title="Close"><X size={18} /></button>
-        </div>
-        <div className="reference-card">
-          <div><span>Bettor</span><strong>{reference.bettorName}</strong></div>
-          <div><span>Draw</span><strong>{reference.draw.drawDate} {drawSlotLabel(reference.draw.drawSlot)}</strong></div>
-          {reference.lines.map((line, index) => (
-            <div className="reference-line" key={`${line.number}-${index}`}>
-              <strong>{line.number}</strong>
-              <span>{money(line.amount)}</span>
-            </div>
-          ))}
-          <div className="reference-total"><span>Total</span><strong>{money(reference.total)}</strong></div>
-          {!reference.synced && <p className="muted">This slip is not valid until it syncs before cutoff.</p>}
-        </div>
+        ))}
+        <div className="reference-total"><span>Total</span><strong>{money(reference.total)}</strong></div>
+        {!reference.synced && <p className="muted">This slip is not valid until it syncs before cutoff.</p>}
       </div>
-    </div>
+    </Modal>
   );
 }
 

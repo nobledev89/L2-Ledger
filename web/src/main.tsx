@@ -1,10 +1,19 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import {App} from "./App";
+import {DialogProvider} from "./components/Dialog";
+import {ErrorBoundary} from "./components/ErrorBoundary";
+import {ToastProvider} from "./components/Toast";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <ToastProvider>
+        <DialogProvider>
+          <App />
+        </DialogProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

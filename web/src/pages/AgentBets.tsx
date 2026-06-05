@@ -1,7 +1,11 @@
 import {RotateCcw} from "lucide-react";
 import {useState} from "react";
+import {useDialog} from "../components/Dialog";
+import {useToast} from "../components/Toast";
 import {api, useBets} from "../lib/data";
 import {dateTime, drawSlotLabel, money} from "../lib/format";
+import {statusLabel} from "../lib/labels";
+import {errorMessage} from "../lib/useAsyncAction";
 import type {AppUser} from "../lib/types";
 
 interface AgentBetsProps {
@@ -10,18 +14,34 @@ interface AgentBetsProps {
 
 export function AgentBets({user}: AgentBetsProps) {
   const bets = useBets({createdBy: user.uid});
+  const dialog = useDialog();
+  const toast = useToast();
   const [busySlip, setBusySlip] = useState("");
 
   async function cancelSlip(slipId: string) {
-    const reason = window.prompt("Reason for cancellation") ?? "";
-    if (!reason.trim()) return;
+    const reason = await dialog.prompt({
+      title: "Cancel bet slip",
+      message: "This cancels every bet on the slip. It can only be done before the draw cutoff.",
+      label: "Reason for cancellation",
+      placeholder: "e.g. customer changed their mind",
+      tone: "danger",
+      confirmLabel: "Cancel slip",
+      cancelLabel: "Keep slip",
+      validate: (value) => (value ? null : "A reason is required."),
+    });
+    if (reason === null) return;
     setBusySlip(slipId);
     try {
-      await api.cancelBetSlip(slipId, reason.trim());
+      await api.cancelBetSlip(slipId, reason);
+      toast.success("Bet slip cancelled.");
+    } catch (err) {
+      toast.error(errorMessage(err));
     } finally {
       setBusySlip("");
     }
   }
+
+  const hasBets = bets.data.length > 0;
 
   return (
     <section className="workspace">
@@ -56,16 +76,27 @@ export function AgentBets({user}: AgentBetsProps) {
                 <td className="number-cell">{bet.number}</td>
                 <td>{money(bet.amount)}</td>
                 <td>{money(bet.potentialPayout)}</td>
-                <td><span className={`pill ${bet.status}`}>{bet.status}</span></td>
+                <td><span className={`pill ${bet.status}`}>{statusLabel(bet.status)}</span></td>
                 <td>
                   {["accepted", "edited"].includes(bet.status) && (
-                    <button className="icon-button" disabled={busySlip === bet.slipId} onClick={() => cancelSlip(bet.slipId)} title="Cancel slip before cutoff">
+                    <button
+                      className="icon-button danger"
+                      disabled={busySlip === bet.slipId}
+                      onClick={() => cancelSlip(bet.slipId)}
+                      aria-label={`Cancel slip for ${bet.bettorName}`}
+                      title="Cancel slip before cutoff"
+                    >
                       <RotateCcw size={17} />
                     </button>
                   )}
                 </td>
               </tr>
             ))}
+            {!hasBets && !bets.loading && !bets.error && (
+              <tr className="empty-row">
+                <td colSpan={9}>No bets yet. Slips you create will appear here.</td>
+              </tr>
+            )}
           </tbody>
         </table>
         {bets.loading && <div className="notice">Loading bets...</div>}

@@ -1,10 +1,15 @@
 import {useMemo, useState} from "react";
+import {EmptyState} from "../components/EmptyState";
+import {Spinner} from "../components/Spinner";
 import {api, useAuditLogs, useBets, useDailyReports, useUshers} from "../lib/data";
 import {dateTime, money, shortDate} from "../lib/format";
+import {roleLabel} from "../lib/labels";
+import {useAsyncAction} from "../lib/useAsyncAction";
 import type {AppUser} from "../lib/types";
 
 export function Reports({user, operatorId, admin, financial}: {user: AppUser; operatorId: string; admin: boolean; financial: boolean}) {
   const [date, setDate] = useState(shortDate());
+  const {busy, run} = useAsyncAction();
   const bets = useBets({operatorId, admin});
   const reports = useDailyReports(financial ? operatorId : undefined, admin && financial);
   const logs = useAuditLogs(operatorId, admin || ["operator", "coOperator", "manager"].includes(user.role));
@@ -19,20 +24,23 @@ export function Reports({user, operatorId, admin, financial}: {user: AppUser; op
   }, [bets.data]);
 
   async function compute() {
-    await api.computeDailyReport(operatorId, date);
+    await run(() => api.computeDailyReport(operatorId, date), {success: "Daily report computed."});
   }
 
   return (
     <section className="workspace">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{admin ? "Super admin" : user.role}</span>
+          <span className="eyebrow">{admin ? "Super Admin" : roleLabel(user.role)}</span>
           <h2>Reports & Audit</h2>
         </div>
         {financial && user.role !== "superAdmin" && (
           <div className="actions-row">
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-            <button className="secondary" onClick={compute}>Compute daily</button>
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="Report date" />
+            <button className="secondary" onClick={compute} disabled={busy}>
+              {busy ? <Spinner /> : null}
+              {busy ? "Computing..." : "Compute daily"}
+            </button>
           </div>
         )}
       </div>
@@ -47,22 +55,30 @@ export function Reports({user, operatorId, admin, financial}: {user: AppUser; op
       <div className="dashboard-grid">
         <section className="panel">
           <h3>Usher / Direct Totals</h3>
-          {[...summary.byUsher.entries()].map(([usherId, amount]) => (
-            <div className="list-row" key={usherId}>
-              <strong>{usherId === "direct" ? "Direct" : ushers.data.find((usher) => usher.usherId === usherId)?.name ?? usherId}</strong>
-              <span>{money(amount)}</span>
-            </div>
-          ))}
+          {summary.byUsher.size > 0 ? (
+            [...summary.byUsher.entries()].map(([usherId, amount]) => (
+              <div className="list-row" key={usherId}>
+                <strong>{usherId === "direct" ? "Direct" : ushers.data.find((usher) => usher.usherId === usherId)?.name ?? usherId}</strong>
+                <span>{money(amount)}</span>
+              </div>
+            ))
+          ) : (
+            <EmptyState title="No stakes recorded" hint="Totals appear once bets are placed." />
+          )}
         </section>
         {financial && (
           <section className="panel">
             <h3>Daily Reports</h3>
-            {reports.data.map((report) => (
-              <div className="list-row wide" key={report.id}>
-                <strong>{report.date}</strong>
-                <span>{money(report.grossStakes)} stakes - {money(report.payouts)} payouts - {money(report.netDailyIncome)} net</span>
-              </div>
-            ))}
+            {reports.data.length > 0 ? (
+              reports.data.map((report) => (
+                <div className="list-row wide" key={report.id}>
+                  <strong>{report.date}</strong>
+                  <span>{money(report.grossStakes)} stakes - {money(report.payouts)} payouts - {money(report.netDailyIncome)} net</span>
+                </div>
+              ))
+            ) : (
+              <EmptyState title="No daily reports" hint="Use Compute daily to generate one." />
+            )}
           </section>
         )}
       </div>
@@ -81,12 +97,17 @@ export function Reports({user, operatorId, admin, financial}: {user: AppUser; op
             {logs.data.map((log) => (
               <tr key={`${log.entityId}-${log.action}-${log.createdAt?.getTime() ?? ""}`}>
                 <td>{dateTime(log.createdAt)}</td>
-                <td>{log.actorRole} - {log.actorId.slice(0, 8)}</td>
+                <td>{roleLabel(log.actorRole)} - {log.actorId.slice(0, 8)}</td>
                 <td>{log.action}</td>
                 <td>{log.entityType} - {log.entityId.slice(0, 12)}</td>
                 <td>{log.reason || "-"}</td>
               </tr>
             ))}
+            {logs.data.length === 0 && !logs.loading && !logs.error && (
+              <tr className="empty-row">
+                <td colSpan={5}>No audit activity yet.</td>
+              </tr>
+            )}
           </tbody>
         </table>
         {logs.loading && <div className="notice">Loading audit logs...</div>}

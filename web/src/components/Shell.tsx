@@ -1,5 +1,6 @@
 import {Activity, ClipboardList, CreditCard, LayoutDashboard, LogOut, PlusCircle, Settings, ShieldCheck, UserCog, Users} from "lucide-react";
 import type {ReactNode} from "react";
+import {roleLabel} from "../lib/labels";
 import type {AppUser} from "../lib/types";
 
 export type View = "usher-entry" | "usher-bets" | "operator-dashboard" | "draws" | "staff" | "ushers" | "reports" | "admin-operators" | "admin-billing";
@@ -52,23 +53,28 @@ export function Shell({user, view, setView, signOut, children}: ShellProps) {
             <span>{user.operatorId || "platform"}</span>
           </div>
         </div>
-        <nav>
+        <nav aria-label="Primary">
           {nav.map(([key, Icon, label]) => (
-            <button className={view === key ? "active" : ""} key={key as string} onClick={() => setView(key as View)}>
-              <Icon size={18} />
+            <button
+              className={view === key ? "active" : ""}
+              key={key as string}
+              onClick={() => setView(key as View)}
+              aria-current={view === key ? "page" : undefined}
+            >
+              <Icon size={18} aria-hidden />
               {label as string}
             </button>
           ))}
         </nav>
         <button className="sign-out" onClick={signOut}>
-          <LogOut size={18} />
+          <LogOut size={18} aria-hidden />
           Sign out
         </button>
       </aside>
       <main>
         <header className="topbar">
           <div>
-            <span className="eyebrow">{user.role}</span>
+            <span className="eyebrow">{roleLabel(user.role)}</span>
             <h1>{user.name || user.email}</h1>
           </div>
           <div className={user.active ? "status ok" : "status danger"}>{user.active ? "Active" : "Inactive"}</div>

@@ -1,8 +1,14 @@
 import {Banknote, CheckCircle} from "lucide-react";
 import {useMemo, useState} from "react";
+import {useDialog} from "../components/Dialog";
 import {DrawSelect} from "../components/DrawSelect";
+import {EmptyState} from "../components/EmptyState";
+import {Spinner} from "../components/Spinner";
+import {useToast} from "../components/Toast";
 import {api, useBets, useTallies, useUshers} from "../lib/data";
 import {dateTime, drawSlotLabel, money} from "../lib/format";
+import {statusLabel} from "../lib/labels";
+import {errorMessage} from "../lib/useAsyncAction";
 import type {AppUser, Draw, OperatorAccount} from "../lib/types";
 
 interface AdminDashboardProps {
@@ -15,7 +21,11 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({user, operator, draws, selectedDrawId, setSelectedDrawId}: AdminDashboardProps) {
   const selected = draws.find((draw) => draw.drawId === selectedDrawId);
+  const dialog = useDialog();
+  const toast = useToast();
   const [usherFilter, setUsherFilter] = useState("all");
+  const [settling, setSettling] = useState(false);
+  const [payingBetId, setPayingBetId] = useState("");
   const tallies = useTallies(selected?.drawId);
   const canSettle = ["operator", "coOperator"].includes(user.role);
   const canBlock = ["operator", "coOperator", "manager"].includes(user.role);
@@ -46,24 +56,69 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
 
   async function completeDraw() {
     if (!selected) return;
-    const winningNumber = window.prompt("Winning number 00-99", selected.winningNumber) ?? "";
-    if (!/^\d{1,2}$/.test(winningNumber)) return;
-    await api.enterWinningNumber(selected.drawId, winningNumber.padStart(2, "0"));
+    const winningNumber = await dialog.prompt({
+      title: "Enter winning number",
+      message: "This settles the draw, marks winners, and locks in payouts. This cannot be undone.",
+      label: "Winning number (00–99)",
+      defaultValue: selected.winningNumber,
+      placeholder: "00",
+      inputMode: "numeric",
+      tone: "danger",
+      confirmLabel: "Settle draw",
+      validate: (value) => (/^\d{1,2}$/.test(value) ? null : "Enter a number from 00 to 99."),
+    });
+    if (winningNumber === null) return;
+    setSettling(true);
+    try {
+      const result = await api.enterWinningNumber(selected.drawId, winningNumber.padStart(2, "0"));
+      toast.success(`Draw settled. ${result.winners} winner(s), ${money(result.payoutTotal)} in payouts.`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSettling(false);
+    }
   }
 
-  async function markPaid(betId: string) {
-    await api.markBetPaid(betId);
+  async function markPaid(betId: string, bettorName: string) {
+    const confirmed = await dialog.confirm({
+      title: "Mark payout as paid",
+      message: `Confirm that the winnings for ${bettorName} have been paid out.`,
+      confirmLabel: "Mark paid",
+    });
+    if (!confirmed) return;
+    setPayingBetId(betId);
+    try {
+      await api.markBetPaid(betId);
+      toast.success("Payout marked as paid.");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setPayingBetId("");
+    }
   }
 
   async function toggleBlock(number: string, blocked: boolean) {
     if (!selected || readOnlyScope || !canBlock) return;
-    if (blocked) {
-      await api.unblockNumberForDraw(selected.drawId, number);
-      return;
+    try {
+      if (blocked) {
+        await api.unblockNumberForDraw(selected.drawId, number);
+        toast.success(`Number ${number} unblocked.`);
+        return;
+      }
+      const reason = await dialog.prompt({
+        title: `Block number ${number}`,
+        message: "Blocked numbers cannot be bet on for this draw.",
+        label: "Reason",
+        defaultValue: "Red number",
+        confirmLabel: "Block number",
+        validate: (value) => (value ? null : "A reason is required."),
+      });
+      if (reason === null) return;
+      await api.blockNumberForDraw(selected.drawId, number, reason);
+      toast.success(`Number ${number} blocked.`);
+    } catch (err) {
+      toast.error(errorMessage(err));
     }
-    const reason = window.prompt(`Reason to block ${number}`, "Red number") ?? "";
-    if (!reason.trim()) return;
-    await api.blockNumberForDraw(selected.drawId, number, reason.trim());
   }
 
   return (
@@ -83,7 +138,7 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
             <strong>{drawSlotLabel(selected.drawSlot)}</strong>
             <span>Draw {dateTime(selected.drawTime)}</span>
             <span>Cutoff {dateTime(selected.cutoffTime)}</span>
-            <span className={`pill ${selected.status}`}>{selected.status}</span>
+            <span className={`pill ${selected.status}`}>{statusLabel(selected.status)}</span>
           </div>
           <div className="metrics">
             <Metric label="Gross stakes" value={money(stats.gross)} />
@@ -102,7 +157,12 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
                 {ushers.data.map((usher) => <option key={usher.usherId} value={usher.usherId}>{usher.name}</option>)}
               </select>
             </label>
-            {canSettle && <button className="primary" onClick={completeDraw}><CheckCircle size={18} /> Enter winning number</button>}
+            {canSettle && (
+              <button className="primary" onClick={completeDraw} disabled={settling}>
+                {settling ? <Spinner /> : <CheckCircle size={18} aria-hidden />}
+                {settling ? "Settling..." : "Enter winning number"}
+              </button>
+            )}
           </div>
           <div className="dashboard-grid">
             <section className="risk-grid-panel">
@@ -132,22 +192,40 @@ export function AdminDashboard({user, operator, draws, selectedDrawId, setSelect
             <div className="side-stack">
               <section className="panel">
                 <h3>Hot Numbers</h3>
-                {stats.hot.map((item) => (
-                  <div className="list-row" key={item.number}>
-                    <strong>{item.number}</strong>
-                    <span>{money(item.totalAmount)} stakes, {money(item.potentialPayout)} payout</span>
-                  </div>
-                ))}
+                {stats.hot.length > 0 ? (
+                  stats.hot.map((item) => (
+                    <div className="list-row" key={item.number}>
+                      <strong>{item.number}</strong>
+                      <span>{money(item.totalAmount)} stakes, {money(item.potentialPayout)} payout</span>
+                    </div>
+                  ))
+                ) : (
+                  <EmptyState title="No stakes yet" hint="Numbers light up here as bets come in." />
+                )}
               </section>
               <section className="panel">
                 <h3>Recent Bets</h3>
-                {bets.data.slice(0, 12).map((bet) => (
-                  <div className="list-row wide" key={bet.betId}>
-                    <strong>{bet.number}</strong>
-                    <span>{bet.bettorName} - {money(bet.amount)} - {bet.status}</span>
-                    {(bet.status === "won" && canSettle) && <button className="icon-button success" onClick={() => markPaid(bet.betId)} title="Mark paid"><Banknote size={18} /></button>}
-                  </div>
-                ))}
+                {bets.data.length > 0 ? (
+                  bets.data.slice(0, 12).map((bet) => (
+                    <div className="list-row wide" key={bet.betId}>
+                      <strong>{bet.number}</strong>
+                      <span>{bet.bettorName} - {money(bet.amount)} - {statusLabel(bet.status)}</span>
+                      {bet.status === "won" && canSettle && (
+                        <button
+                          className="icon-button success"
+                          onClick={() => markPaid(bet.betId, bet.bettorName)}
+                          disabled={payingBetId === bet.betId}
+                          aria-label={`Mark payout paid for ${bet.bettorName}`}
+                          title="Mark paid"
+                        >
+                          {payingBetId === bet.betId ? <Spinner size={16} /> : <Banknote size={18} />}
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <EmptyState title="No bets yet" hint="Recent bets for this draw will show here." />
+                )}
               </section>
             </div>
           </div>
